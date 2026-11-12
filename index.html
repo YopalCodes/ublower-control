@@ -1,0 +1,598 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>uBlower Control</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --fg: #1b1f24; --muted: #667080; --line: #dde1e6;
+    --accent: #2563eb; --on: #16a34a; --off: #9aa3ae; --err: #dc2626; --wait: #d97706;
+    --wet: #0891b2; --grid: #eef0f3; --runbg: rgba(22, 163, 74, .08);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #111418; --card: #1a1e24; --fg: #e6e9ed; --muted: #8b95a3; --line: #2b313a;
+            --accent: #60a5fa; --on: #22c55e; --off: #4b5563; --err: #f87171; --wait: #fbbf24;
+            --wet: #22d3ee; --grid: #232830; --runbg: rgba(34, 197, 94, .10); color-scheme: dark; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+         font: 15px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; padding: 24px 16px; }
+  main { max-width: 640px; margin: 0 auto; display: grid; gap: 16px; }
+  h1 { font-size: 20px; margin: 0; }
+  .sub { color: var(--muted); font-size: 13px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  button { font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line);
+           background: var(--card); color: var(--fg); cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button:disabled { opacity: .45; cursor: default; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--off); display: inline-block; }
+  .dot.live { background: var(--on); }
+  .freq { font-size: 44px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -1px; }
+  .freq small { font-size: 18px; color: var(--muted); font-weight: 500; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  input[type=number], input[type=text] { font: inherit; padding: 7px 10px; border-radius: 8px;
+           border: 1px solid var(--line); background: var(--bg); color: var(--fg); width: 120px; }
+  .toggle { min-width: 120px; font-weight: 600; }
+  .toggle.on { background: var(--on); border-color: var(--on); color: #fff; }
+  .scale { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; }
+  pre { margin: 0; max-height: 160px; overflow: auto; font: 12px/1.45 ui-monospace, Consolas, monospace;
+        color: var(--muted); white-space: pre-wrap; }
+  .err { color: var(--err); }
+  .warn { font-size: 13px; color: var(--err); }
+
+  .volts { font-size: 40px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -1px; }
+  .volts small { font-size: 16px; color: var(--muted); font-weight: 500; }
+  .pill { font-size: 13px; font-weight: 600; padding: 3px 10px; border-radius: 999px;
+          border: 1px solid var(--line); color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+  .pill.active { color: var(--wait); border-color: var(--wait); }
+  .wetbadge { font-size: 18px; font-weight: 700; padding: 6px 18px; border-radius: 10px; letter-spacing: 1px;
+              background: var(--off); color: #fff; min-width: 96px; text-align: center; transition: background .15s; }
+  .wetbadge.wet { background: var(--wet); }
+  .wetbadge.near { background: var(--wait); }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+  .stat { background: var(--bg); border-radius: 8px; padding: 8px 10px; }
+  .stat .k { font-size: 12px; color: var(--muted); }
+  .stat .v { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .chartwrap { position: relative; width: 100%; height: 220px; }
+  canvas { width: 100%; height: 100%; display: block; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+  .legend i { display: inline-block; width: 16px; height: 0; border-top: 2px solid; vertical-align: middle; margin-right: 5px; }
+  .fill { min-width: 120px; font-weight: 600; }
+  .fill.active { background: var(--err); border-color: var(--err); color: #fff; }
+  #lastEvt { font-size: 13px; color: var(--muted); min-height: 1.4em; }
+  #lastEvt.wetEvt { color: var(--wet); font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+  <div>
+    <h1>uBlower Control</h1>
+    <div class="sub">XIAO RP2350 / nRF54L15 · D0 → P1-2 · needles on D1/D2 · optocoupler on D3 · USB or Bluetooth</div>
+  </div>
+
+  <div class="card row" style="justify-content:space-between">
+    <div class="row"><span id="linkDot" class="dot"></span><span id="linkText">Not connected</span></div>
+    <div class="row">
+      <button id="connectBtn" class="primary">USB</button>
+      <button id="bleBtn" class="primary">Bluetooth</button>
+    </div>
+  </div>
+  <div id="noSerial" class="card warn" hidden>
+    This browser has neither Web Serial (USB) nor Web Bluetooth. Use Chrome or Edge on a computer or
+    Android phone. Bluetooth needs the page opened from an https:// address (or localhost).
+  </div>
+
+  <div class="card" style="display:grid; gap:12px">
+    <div class="row" style="justify-content:space-between">
+      <div class="volts"><span id="voltView">—</span> <small>V</small></div>
+      <div class="row">
+        <span id="modeView" class="pill">idle</span>
+        <span id="wetBadge" class="wetbadge">—</span>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="k">Threshold</div><div class="v" id="thrView">—</div></div>
+      <div class="stat"><div class="k">Baseline</div><div class="v" id="baseView">—</div></div>
+      <div class="stat"><div class="k">Rise / needed</div><div class="v" id="riseView">—</div></div>
+      <div class="stat"><div class="k">Wet hits</div><div class="v" id="hitsView">—</div></div>
+    </div>
+
+    <div class="chartwrap"><canvas id="chart"></canvas></div>
+    <div class="legend">
+      <span><i style="border-color:var(--accent)"></i>Voltage</span>
+      <span><i style="border-color:var(--wet); border-top-style:dashed"></i>Wet threshold</span>
+      <span><i style="border-color:var(--muted); border-top-style:dotted"></i>Baseline</span>
+      <span><i style="border-color:var(--on); border-top-width:8px; opacity:.3"></i>Blower on</span>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="k">Runs done</div><div class="v" id="runsView">0</div></div>
+      <div class="stat"><div class="k">Current run</div><div class="v" id="cycleView">—</div></div>
+      <div class="stat"><div class="k">Next run in</div><div class="v" id="nextView">—</div></div>
+    </div>
+
+    <div class="sub">Run once: dry baseline with blower OFF, then ON until WET.
+      Auto: run 1 fills until WET, then repeats — wait <span id="waitS">7</span> s, blow until the
+      needles go DRY and then WET again, stop.</div>
+    <div class="row">
+      <button id="runBtn" class="fill" disabled>Run once</button>
+      <button id="autoBtn" class="fill" disabled>Auto</button>
+      <button id="stopBtn" disabled>Stop</button>
+      <button id="resetRunsBtn" disabled>Reset count</button>
+    </div>
+    <form id="autoHzForm" class="row">
+      <span class="sub">Auto frequency (lower = gentler):</span>
+      <input id="autoHzInput" type="number" min="24000" max="27000" step="10" value="24800" disabled>
+      <span class="sub">Hz</span>
+      <button type="submit" disabled>Set</button>
+      <span class="sub" id="autoHzView"></span>
+    </form>
+    <div id="lastEvt"></div>
+  </div>
+
+  <div class="card" style="display:grid; gap:14px">
+    <div class="row" style="justify-content:space-between">
+      <div class="freq"><span id="freqView">—</span> <small>Hz</small></div>
+      <button id="toggleBtn" class="toggle" disabled>OFF</button>
+    </div>
+
+    <div>
+      <input id="slider" type="range" min="24000" max="27000" step="10" disabled>
+      <div class="scale"><span>24 kHz</span><span>25.5 kHz</span><span>27 kHz</span></div>
+    </div>
+
+    <div class="row">
+      <button data-step="-500" disabled>−500</button>
+      <button data-step="-100" disabled>−100</button>
+      <button data-step="-10" disabled>−10</button>
+      <button data-step="10" disabled>+10</button>
+      <button data-step="100" disabled>+100</button>
+      <button data-step="500" disabled>+500</button>
+    </div>
+
+    <form id="freqForm" class="row">
+      <input id="freqInput" type="number" min="24000" max="27000" step="1" placeholder="Hz" disabled>
+      <button type="submit" disabled>Set</button>
+      <button type="button" data-preset="25500" disabled>25.5 kHz</button>
+    </form>
+  </div>
+
+  <div class="card" style="display:grid; gap:14px">
+    <div class="row" style="justify-content:space-between">
+      <div>
+        <div style="font-weight:600">Optocoupler</div>
+        <div class="sub">D3 → ~470 Ω → opto LED</div>
+      </div>
+      <button id="ermBtn" class="toggle" disabled>OFF</button>
+    </div>
+  </div>
+
+  <div class="card" style="display:grid; gap:8px">
+    <form id="rawForm" class="row">
+      <input id="rawInput" type="text" placeholder="raw command, e.g. ?" style="flex:1" disabled>
+      <button type="submit" disabled>Send</button>
+    </form>
+    <pre id="log"></pre>
+  </div>
+</main>
+
+<script>
+const MIN_HZ = 24000, MAX_HZ = 27000;  // must match main.py
+const WINDOW_MS = 30000;               // chart time span
+const $ = id => document.getElementById(id);
+const log = (msg, cls) => {
+  const line = document.createElement('div');
+  line.textContent = msg;
+  if (cls) line.className = cls;
+  $('log').prepend(line);
+  while ($('log').childElementCount > 200) $('log').lastChild.remove();
+};
+
+const clampHz = hz => Math.min(MAX_HZ, Math.max(MIN_HZ, Math.round(hz)));
+const fmtV = v => v === null || Number.isNaN(v) ? '—' : (v >= 0 ? '+' : '') + v.toFixed(4);
+
+// cfg comes from the board's "CFG" line; these defaults match main.py.
+let cfg = { wetRise: 0.075, dryMax: 0.03, hits: 2, autoWait: 7 };
+let state = { f: 25500, on: false, mode: 'idle', v: null, base: null, hits: 0, auto: false, cycle: 0 };
+let runsDone = 0;        // WET events seen (page counter)
+let nextRunAt = null;    // performance.now() time the next auto run starts
+let pendingHz = null, sending = false;
+let erm = { on: false };   // D3 optocoupler, from the board's "OPTO on=<0|1>" line
+const points = [];   // { t, v, thr, base, on }
+const markers = [];  // { t, label, color }
+
+const filling = () => ['baseline', 'fill', 'wait'].includes(state.mode);
+// Dry reads ~0 V, so outside a fill the threshold is measured from 0 V.
+const reference = () => state.base ?? 0;
+const threshold = () => reference() + cfg.wetRise;
+
+function render() {
+  $('freqView').textContent = state.f.toLocaleString();
+  if (document.activeElement !== $('slider')) $('slider').value = state.f;
+  const t = $('toggleBtn');
+  t.textContent = state.on ? 'ON' : 'OFF';
+  t.classList.toggle('on', state.on);
+
+  $('voltView').textContent = fmtV(state.v);
+  $('modeView').textContent = state.mode;
+  $('modeView').classList.toggle('active', filling());
+  $('thrView').textContent = fmtV(threshold()) + ' V';
+  $('baseView').textContent = state.base === null ? (state.mode === 'baseline' ? 'measuring…' : '0 (none)') : fmtV(state.base) + ' V';
+  if (state.v === null) {
+    $('riseView').textContent = '—';
+  } else {
+    const rise = state.v - reference();
+    $('riseView').textContent = `${fmtV(rise)} / ${cfg.wetRise.toFixed(3)}`;
+  }
+  $('hitsView').textContent = state.mode === 'fill' ? `${state.hits} / ${cfg.hits}` : '—';
+
+  const eb = $('ermBtn');
+  eb.textContent = erm.on ? 'ON' : 'OFF';
+  eb.classList.toggle('on', erm.on);
+
+  const badge = $('wetBadge');
+  badge.classList.remove('wet', 'near');
+  if (state.v === null) badge.textContent = '—';
+  else if (state.mode === 'baseline') badge.textContent = 'BASELINE';
+  else if (state.v >= threshold()) { badge.textContent = 'WET'; badge.classList.add('wet'); }
+  else if (state.v - reference() >= cfg.wetRise / 2) { badge.textContent = 'RISING'; badge.classList.add('near'); }
+  else badge.textContent = 'DRY';
+
+  const single = filling() && !state.auto;
+  $('runBtn').textContent = single ? 'Running…' : 'Run once';
+  $('runBtn').classList.toggle('active', single);
+  $('autoBtn').textContent = state.auto ? 'Auto ON' : 'Auto';
+  $('autoBtn').classList.toggle('active', state.auto);
+  renderCounter();
+  scheduleDraw();
+}
+
+function renderCounter() {
+  $('runsView').textContent = runsDone;
+  $('cycleView').textContent = filling() && state.cycle > 0 ? '#' + state.cycle
+    : filling() ? '#1' : '—';
+  if (state.mode === 'wait' && nextRunAt !== null) {
+    const s = Math.max(0, Math.ceil((nextRunAt - performance.now()) / 1000));
+    $('nextView').textContent = s + ' s';
+  } else {
+    $('nextView').textContent = '—';
+  }
+  $('waitS').textContent = cfg.autoWait;
+}
+
+// ---------- chart ----------
+let drawQueued = false;
+function scheduleDraw() {
+  if (drawQueued) return;
+  drawQueued = true;
+  requestAnimationFrame(() => { drawQueued = false; draw(); });
+}
+
+function draw() {
+  const c = $('chart'), ctx = c.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const W = c.clientWidth, H = c.clientHeight;
+  if (c.width !== W * dpr || c.height !== H * dpr) { c.width = W * dpr; c.height = H * dpr; }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  const css = getComputedStyle(document.documentElement);
+  const col = n => css.getPropertyValue(n).trim();
+
+  const padL = 52, padR = 8, padT = 8, padB = 20;
+  const pw = W - padL - padR, ph = H - padT - padB;
+  const now = performance.now(), t0 = now - WINDOW_MS;
+  while (points.length && points[0].t < t0 - 1000) points.shift();
+  while (markers.length && markers[0].t < t0 - 1000) markers.shift();
+
+  let vmax = Math.max(0.2, threshold() * 1.3), vmin = -0.01;
+  for (const p of points) { vmax = Math.max(vmax, p.v * 1.1); vmin = Math.min(vmin, p.v); }
+  const x = t => padL + (t - t0) / WINDOW_MS * pw;
+  const y = v => padT + (1 - (v - vmin) / (vmax - vmin)) * ph;
+
+  // grid + y labels
+  ctx.font = '11px ui-monospace, Consolas, monospace';
+  ctx.fillStyle = col('--muted'); ctx.strokeStyle = col('--grid'); ctx.lineWidth = 1;
+  const step = vmax - vmin > 0.5 ? 0.1 : 0.05;
+  for (let g = Math.ceil(vmin / step) * step; g <= vmax; g += step) {
+    ctx.beginPath(); ctx.moveTo(padL, y(g)); ctx.lineTo(W - padR, y(g)); ctx.stroke();
+    ctx.fillText(g.toFixed(2), 4, y(g) + 4);
+  }
+  ctx.fillText('-30 s', padL, H - 5);
+  ctx.fillText('now', W - padR - 22, H - 5);
+
+  // blower-on shading
+  ctx.fillStyle = col('--runbg');
+  for (let i = 0; i < points.length; i++) {
+    if (!points[i].on) continue;
+    const xa = Math.max(padL, x(points[i].t));
+    const xb = i + 1 < points.length ? x(points[i + 1].t) : x(now);
+    ctx.fillRect(xa, padT, Math.max(0, xb - xa), ph);
+  }
+
+  // stepped line helper over a point field
+  const trace = (key, color, dash, width) => {
+    ctx.strokeStyle = color; ctx.lineWidth = width; ctx.setLineDash(dash);
+    ctx.beginPath();
+    let started = false;
+    for (const p of points) {
+      if (p[key] === null) { started = false; continue; }
+      const px = Math.max(padL, x(p.t)), py = y(p[key]);
+      started ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+      started = true;
+    }
+    ctx.stroke(); ctx.setLineDash([]);
+  };
+  trace('base', col('--muted'), [2, 3], 1);
+  trace('thr', col('--wet'), [6, 4], 1.5);
+  trace('v', col('--accent'), [], 2);
+
+  // event markers
+  for (const m of markers) {
+    if (m.t < t0) continue;
+    const mx = x(m.t);
+    ctx.strokeStyle = col(m.color); ctx.fillStyle = col(m.color); ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(mx, padT); ctx.lineTo(mx, padT + ph); ctx.stroke();
+    ctx.font = 'bold 11px system-ui, sans-serif';
+    ctx.fillText(m.label, Math.min(mx + 4, W - padR - 40), padT + 12);
+  }
+
+  // latest value dot
+  const last = points[points.length - 1];
+  if (last) {
+    ctx.fillStyle = last.v >= last.thr ? col('--wet') : col('--accent');
+    ctx.beginPath(); ctx.arc(x(last.t), y(last.v), 3.5, 0, Math.PI * 2); ctx.fill();
+  }
+}
+setInterval(() => { scheduleDraw(); renderCounter(); }, 250);   // scroll the chart, tick the countdown
+window.addEventListener('resize', scheduleDraw);
+
+// ---------- link: USB serial or Bluetooth (same text protocol) ----------
+const hasSerial = 'serial' in navigator, hasBle = 'bluetooth' in navigator;
+const NUS     = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';  // Nordic UART Service
+const NUS_RX  = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';  // page -> board (write)
+const NUS_TX  = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';  // board -> page (notify)
+let link = null;   // { kind: 'usb' | 'ble', write(bytes), close() }
+let rxBuf = '';
+
+function feed(text) {
+  rxBuf += text;
+  let i;
+  while ((i = rxBuf.indexOf('\n')) >= 0) { onLine(rxBuf.slice(0, i)); rxBuf = rxBuf.slice(i + 1); }
+}
+
+function setEnabled(on, kind) {
+  document.querySelectorAll('main button:not(#connectBtn):not(#bleBtn), main input').forEach(el => el.disabled = !on);
+  $('linkDot').classList.toggle('live', on);
+  $('linkText').textContent = on ? `Connected (${kind === 'ble' ? 'Bluetooth' : 'USB'})` : 'Not connected';
+  $('connectBtn').textContent = on && kind === 'usb' ? 'Disconnect' : 'USB';
+  $('bleBtn').textContent = on && kind === 'ble' ? 'Disconnect' : 'Bluetooth';
+  $('connectBtn').disabled = !hasSerial || (on && kind !== 'usb');
+  $('bleBtn').disabled = !hasBle || (on && kind !== 'ble');
+}
+
+async function send(cmd) {
+  if (!link) return;
+  log('> ' + cmd);
+  await link.write(new TextEncoder().encode(cmd + '\n'));
+}
+
+// Coalesce rapid slider moves: only the latest frequency is sent once the previous write completes.
+async function requestHz(hz) {
+  pendingHz = clampHz(hz);
+  state.f = pendingHz; render();
+  if (sending) return;
+  sending = true;
+  try {
+    while (pendingHz !== null) {
+      const f = pendingHz; pendingHz = null;
+      await send(String(f));
+      await new Promise(r => setTimeout(r, 40));
+    }
+  } finally { sending = false; }
+}
+
+function addMarker(label, color) { markers.push({ t: performance.now(), label, color }); }
+
+function onLine(line) {
+  line = line.trim();
+  if (!line) return;
+
+  // Live reading: "V +0.1503 b=+0.0012 hits=1". Updates the readout and chart, not the log.
+  const vm = line.match(/^V ([+-]?\d+\.\d+)(?: b=(\S+))?(?: hits=(\d+))?/);
+  if (vm) {
+    state.v = +vm[1];
+    if (vm[2] !== undefined) state.base = vm[2] === 'nan' ? (state.mode === 'fill' ? state.base : null) : +vm[2];
+    if (vm[3] !== undefined) state.hits = +vm[3];
+    points.push({ t: performance.now(), v: state.v, thr: threshold(), base: state.base, on: state.on });
+    render();
+    return;
+  }
+
+  const ahz = line.match(/^AUTOHZ (\d+)/) || line.match(/^CFG .*auto_hz=(\d+)/);
+  if (ahz) {
+    if (document.activeElement !== $('autoHzInput')) $('autoHzInput').value = ahz[1];
+    $('autoHzView').textContent = `(board: ${(+ahz[1]).toLocaleString()} Hz)`;
+  }
+
+  const em = line.match(/^(?:OPTO|ERM) on=([01])/);
+  if (em) { erm.on = em[1] === '1'; render(); log(line); return; }
+
+  const cm = line.match(/^CFG wet_rise=(\S+) dry_max=(\S+) hits=(\d+)/);
+  if (cm) {
+    const aw = line.match(/auto_wait=(\d+)/);
+    cfg = { wetRise: +cm[1], dryMax: +cm[2], hits: +cm[3], autoWait: aw ? +aw[1] : cfg.autoWait };
+    render(); log(line); return;
+  }
+
+  const m = line.match(/^OK f=(\d+) on=([01])(?: mode=(\w+))?(?: v=(\S+))?/);
+  if (m) {
+    if (pendingHz === null && !sending) state.f = +m[1];
+    state.on = m[2] === '1';
+    if (m[3]) {
+      if (m[3] === 'baseline' && state.mode !== 'baseline') state.base = null;
+      state.mode = m[3];
+    }
+    if (m[4]) state.v = m[4] === 'nan' ? null : +m[4];
+    const am = line.match(/ auto=([01]) cycle=(\d+)/);
+    if (am) { state.auto = am[1] === '1'; state.cycle = +am[2]; }
+    if (state.mode !== 'wait') nextRunAt = null;
+    render();
+  }
+
+  const bad = line.startsWith('ERR') || line.startsWith('EVT ERR') || line.includes('cutoff');
+  if (line.startsWith('EVT ')) {
+    const text = line.slice(4);
+    const isWet = text.startsWith('WET');
+    $('lastEvt').textContent = text;
+    $('lastEvt').className = bad ? 'err' : isWet ? 'wetEvt' : '';
+    if (isWet) {
+      runsDone++;
+      const nm = text.match(/next in (\d+)s/);
+      nextRunAt = nm ? performance.now() + +nm[1] * 1000 : null;
+      addMarker('WET → OFF', '--wet');
+      renderCounter();
+    }
+    else if (text.startsWith('DRY')) addMarker('DRY', '--wait');
+    else if (text.startsWith('baseline +') || text.startsWith('baseline -')
+             || /^run \d+: blower ON/.test(text)) addMarker('ON', '--on');
+    else if (bad) addMarker('STOP', '--err');
+  }
+  log(line, bad ? 'err' : '');
+}
+
+async function onConnected() {
+  setEnabled(true, link.kind);
+  await send('?');
+  await send('opto');
+  await send('v on');
+}
+
+// USB: the nRF54L15 is reached through the XIAO's on-board USB-serial bridge.
+async function connectUsb() {
+  const port = await navigator.serial.requestPort();
+  await port.open({ baudRate: 115200 });
+  await port.setSignals({ dataTerminalReady: true, requestToSend: true });
+  const writer = port.writable.getWriter();
+  const decoder = new TextDecoderStream();
+  const closed = port.readable.pipeTo(decoder.writable).catch(() => {});
+  const reader = decoder.readable.getReader();
+  link = {
+    kind: 'usb',
+    write: bytes => writer.write(bytes),
+    close: async () => {
+      try { await reader.cancel(); } catch {}
+      try { reader.releaseLock(); } catch {}
+      await closed;
+      try { writer.releaseLock(); } catch {}
+      try { await port.close(); } catch {}
+    },
+  };
+  port.addEventListener('disconnect', () => cleanup('device unplugged'));
+  (async () => {
+    try {
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        feed(value);
+      }
+    } catch (e) { if (link) log('read error: ' + e.message, 'err'); }
+    cleanup();
+  })();
+  await onConnected();
+}
+
+// Bluetooth: Nordic UART Service on the board, advertised as "nrfELISA".
+async function connectBle() {
+  const dev = await navigator.bluetooth.requestDevice({
+    filters: [{ namePrefix: 'nrfELISA' }, { services: [NUS] }],
+    optionalServices: [NUS],
+  });
+  dev.addEventListener('gattserverdisconnected', () => cleanup('Bluetooth disconnected'));
+  const server = await dev.gatt.connect();
+  const svc = await server.getPrimaryService(NUS);
+  const rx = await svc.getCharacteristic(NUS_RX);
+  const tx = await svc.getCharacteristic(NUS_TX);
+  const dec = new TextDecoder();
+  tx.addEventListener('characteristicvaluechanged', e => feed(dec.decode(e.target.value, { stream: true })));
+  await tx.startNotifications();
+  let queue = Promise.resolve();   // GATT writes must not overlap
+  link = {
+    kind: 'ble',
+    write: bytes => (queue = queue.then(async () => {
+      for (let i = 0; i < bytes.length; i += 20) await rx.writeValueWithoutResponse(bytes.slice(i, i + 20));
+    }).catch(e => log('Bluetooth write error: ' + e.message, 'err'))),
+    close: async () => { try { dev.gatt.disconnect(); } catch {} },
+  };
+  await onConnected();
+}
+
+async function cleanup(reason) {
+  if (!link) return;
+  const l = link; link = null; rxBuf = '';
+  try { await l.close(); } catch {}
+  setEnabled(false);
+  log(reason || 'disconnected');
+}
+
+async function disconnect() {
+  try { await send('off'); } catch {}
+  try { await send('opto off'); } catch {}
+  await cleanup();
+}
+
+$('connectBtn').onclick = async () => {
+  try { link ? await disconnect() : await connectUsb(); }
+  catch (e) { log(e.message, 'err'); await cleanup(); }
+};
+$('bleBtn').onclick = async () => {
+  try { link ? await disconnect() : await connectBle(); }
+  catch (e) { log(e.message, 'err'); await cleanup(); }
+};
+$('toggleBtn').onclick = () => send(state.on ? 'off' : 'on');
+$('runBtn').onclick = () => send('fill');
+$('autoBtn').onclick = () => {
+  if (state.auto) { send('off'); return; }
+  runsDone = 0; renderCounter();
+  send('auto');
+};
+$('stopBtn').onclick = () => send('off');
+$('autoHzForm').onsubmit = e => {
+  e.preventDefault();
+  const v = Math.round(+$('autoHzInput').value);
+  if (v >= MIN_HZ && v <= MAX_HZ) send('autohz ' + v); else log(`enter ${MIN_HZ}..${MAX_HZ}`, 'err');
+};
+$('resetRunsBtn').onclick = () => { runsDone = 0; renderCounter(); };
+$('slider').oninput = e => requestHz(+e.target.value);
+$('ermBtn').onclick = () => send(erm.on ? 'opto off' : 'opto on');
+document.querySelectorAll('[data-step]').forEach(b =>
+  b.onclick = () => requestHz(state.f + +b.dataset.step));
+document.querySelectorAll('[data-preset]').forEach(b =>
+  b.onclick = () => requestHz(+b.dataset.preset));
+$('freqForm').onsubmit = e => {
+  e.preventDefault();
+  const v = +$('freqInput').value;
+  if (v >= MIN_HZ && v <= MAX_HZ) requestHz(v); else log(`enter ${MIN_HZ}..${MAX_HZ}`, 'err');
+};
+$('rawForm').onsubmit = e => {
+  e.preventDefault();
+  const v = $('rawInput').value.trim();
+  if (v) send(v);
+  $('rawInput').value = '';
+};
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' && link &&!['INPUT', 'BUTTON'].includes(document.activeElement.tagName)) {
+    e.preventDefault(); $('toggleBtn').click();
+  }
+});
+
+if (!hasSerial && !hasBle) $('noSerial').hidden = false;
+setEnabled(false);
+render();
+</script>
+</body>
+</html>
