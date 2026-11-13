@@ -65,13 +65,35 @@
   .fill.active { background: var(--err); border-color: var(--err); color: #fff; }
   #lastEvt { font-size: 13px; color: var(--muted); min-height: 1.4em; }
   #lastEvt.wetEvt { color: var(--wet); font-weight: 600; }
+
+  /* Blower + ERM units */
+  .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+  .unit { display: grid; gap: 14px; align-content: start; }
+  .unit-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .unit-title { font-size: 18px; font-weight: 700; }
+  .state { font-size: 12px; font-weight: 700; letter-spacing: .5px; padding: 4px 10px; border-radius: 999px;
+           background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
+  .state.on { background: var(--on); color: #fff; border-color: var(--on); }
+  .big { width: 100%; padding: 14px; font-size: 17px; font-weight: 700; }
+  .big.on { background: var(--on); border-color: var(--on); color: #fff; }
+  .k { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .seg button { padding: 10px 0; font-weight: 600; }
+  .seg button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .freqline { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .freqline span { font-size: 22px; font-weight: 600; color: var(--fg); }
+  details summary { cursor: pointer; font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+  details input[type=number] { width: 100px; }
+  .erm-row { display: flex; justify-content: space-between; align-items: center; gap: 8px;
+             border-top: 1px solid var(--line); padding-top: 12px; }
+  .erm-title { font-weight: 600; }
 </style>
 </head>
 <body>
 <main>
   <div>
     <h1>uBlower Control</h1>
-    <div class="sub">XIAO RP2350 / nRF54L15 · D0 → P1-2 · needles on D1/D2 · opto D3/D5 · blower 2 on D4 · USB or Bluetooth</div>
+    <div class="sub">XIAO RP2350 / nRF54L15 · D0 → P1-2 · needles on D1/D2 · blower 1 + ERM 1 on D0/D3 · blower 2 + ERM 2 on D4/D5 · USB or Bluetooth</div>
   </div>
 
   <div class="card row" style="justify-content:space-between">
@@ -135,70 +157,81 @@
     <div id="lastEvt"></div>
   </div>
 
-  <div class="card" style="display:grid; gap:14px">
-    <div class="row" style="justify-content:space-between">
-      <div class="freq"><span id="freqView">—</span> <small>Hz</small></div>
-      <button id="toggleBtn" class="toggle" disabled>OFF</button>
-    </div>
-
-    <div>
-      <input id="slider" type="range" min="24000" max="27000" step="10" disabled>
-      <div class="scale"><span>24 kHz</span><span>25.5 kHz</span><span>27 kHz</span></div>
-    </div>
-
-    <div class="row">
-      <button data-step="-500" disabled>−500</button>
-      <button data-step="-100" disabled>−100</button>
-      <button data-step="-10" disabled>−10</button>
-      <button data-step="10" disabled>+10</button>
-      <button data-step="100" disabled>+100</button>
-      <button data-step="500" disabled>+500</button>
-    </div>
-
-    <form id="freqForm" class="row">
-      <input id="freqInput" type="number" min="24000" max="27000" step="1" placeholder="Hz" disabled>
-      <button type="submit" disabled>Set</button>
-      <button type="button" data-preset="25500" disabled>25.5 kHz</button>
-    </form>
-  </div>
-
-  <div class="card" style="display:grid; gap:14px">
-    <div class="row" style="justify-content:space-between">
-      <div>
-        <div style="font-weight:600">Blower 2</div>
-        <div class="sub">D4 · own frequency · not used by Fill/Auto</div>
+  <div class="pair">
+    <!-- Blower 1 + ERM 1 -->
+    <div class="card unit">
+      <div class="unit-head">
+        <div>
+          <div class="unit-title">Blower 1</div>
+          <div class="sub">D0 · used by Run once / Auto</div>
+        </div>
+        <span id="b1State" class="state">OFF</span>
       </div>
-      <button id="b2Btn" class="toggle" disabled>OFF</button>
+      <button id="toggleBtn" class="big" disabled>Turn ON</button>
+      <div>
+        <div class="k">Power</div>
+        <div class="seg">
+          <button type="button" data-preset="24800" disabled>Low</button>
+          <button type="button" data-preset="25200" disabled>Medium</button>
+          <button type="button" data-preset="25500" disabled>High</button>
+        </div>
+      </div>
+      <div class="freqline"><span id="freqView">—</span> Hz</div>
+      <details>
+        <summary>Fine tune</summary>
+        <input id="slider" type="range" min="24000" max="27000" step="10" disabled>
+        <div class="scale"><span>24 kHz</span><span>25.5 kHz</span><span>27 kHz</span></div>
+        <form id="freqForm" class="row" style="margin-top:8px">
+          <button type="button" data-step="-100" disabled>−100</button>
+          <button type="button" data-step="-10" disabled>−10</button>
+          <button type="button" data-step="10" disabled>+10</button>
+          <button type="button" data-step="100" disabled>+100</button>
+          <input id="freqInput" type="number" min="24000" max="27000" step="1" placeholder="Hz" disabled>
+          <button type="submit" disabled>Set</button>
+        </form>
+      </details>
+      <div class="erm-row">
+        <div><div class="erm-title">ERM 1</div><div class="sub">vibration · D3</div></div>
+        <button id="ermBtn" class="toggle" disabled>OFF</button>
+      </div>
     </div>
-    <div class="freq"><span id="b2FreqView">—</span> <small>Hz</small></div>
-    <div>
-      <input id="b2Slider" type="range" min="24000" max="27000" step="10" value="25500" disabled>
-      <div class="scale"><span>24 kHz</span><span>25.5 kHz</span><span>27 kHz</span></div>
-    </div>
-    <form id="b2Form" class="row">
-      <button type="button" data-b2step="-100" disabled>−100</button>
-      <button type="button" data-b2step="-10" disabled>−10</button>
-      <button type="button" data-b2step="10" disabled>+10</button>
-      <button type="button" data-b2step="100" disabled>+100</button>
-      <input id="b2Input" type="number" min="24000" max="27000" step="1" placeholder="Hz" disabled>
-      <button type="submit" disabled>Set</button>
-    </form>
-  </div>
 
-  <div class="card" style="display:grid; gap:14px">
-    <div class="row" style="justify-content:space-between">
-      <div>
-        <div style="font-weight:600">Optocoupler 1</div>
-        <div class="sub">D3 → ~470 Ω → opto LED</div>
+    <!-- Blower 2 + ERM 2 -->
+    <div class="card unit">
+      <div class="unit-head">
+        <div>
+          <div class="unit-title">Blower 2</div>
+          <div class="sub">D4 · manual only</div>
+        </div>
+        <span id="b2State" class="state">OFF</span>
       </div>
-      <button id="ermBtn" class="toggle" disabled>OFF</button>
-    </div>
-    <div class="row" style="justify-content:space-between">
+      <button id="b2Btn" class="big" disabled>Turn ON</button>
       <div>
-        <div style="font-weight:600">Optocoupler 2</div>
-        <div class="sub">D5 → ~470 Ω → opto LED</div>
+        <div class="k">Power</div>
+        <div class="seg">
+          <button type="button" data-b2preset="24800" disabled>Low</button>
+          <button type="button" data-b2preset="25200" disabled>Medium</button>
+          <button type="button" data-b2preset="25500" disabled>High</button>
+        </div>
       </div>
-      <button id="erm2Btn" class="toggle" disabled>OFF</button>
+      <div class="freqline"><span id="b2FreqView">—</span> Hz</div>
+      <details>
+        <summary>Fine tune</summary>
+        <input id="b2Slider" type="range" min="24000" max="27000" step="10" value="25500" disabled>
+        <div class="scale"><span>24 kHz</span><span>25.5 kHz</span><span>27 kHz</span></div>
+        <form id="b2Form" class="row" style="margin-top:8px">
+          <button type="button" data-b2step="-100" disabled>−100</button>
+          <button type="button" data-b2step="-10" disabled>−10</button>
+          <button type="button" data-b2step="10" disabled>+10</button>
+          <button type="button" data-b2step="100" disabled>+100</button>
+          <input id="b2Input" type="number" min="24000" max="27000" step="1" placeholder="Hz" disabled>
+          <button type="submit" disabled>Set</button>
+        </form>
+      </details>
+      <div class="erm-row">
+        <div><div class="erm-title">ERM 2</div><div class="sub">vibration · D5</div></div>
+        <button id="erm2Btn" class="toggle" disabled>OFF</button>
+      </div>
     </div>
   </div>
 
@@ -247,9 +280,7 @@ const threshold = () => reference() + cfg.wetRise;
 function render() {
   $('freqView').textContent = state.f.toLocaleString();
   if (document.activeElement !== $('slider')) $('slider').value = state.f;
-  const t = $('toggleBtn');
-  t.textContent = state.on ? 'ON' : 'OFF';
-  t.classList.toggle('on', state.on);
+  renderBlower('toggleBtn', 'b1State', state.on, state.f, '[data-preset]', 'preset');
 
   $('voltView').textContent = fmtV(state.v);
   $('modeView').textContent = state.mode;
@@ -264,10 +295,11 @@ function render() {
   }
   $('hitsView').textContent = state.mode === 'fill' ? `${state.hits} / ${cfg.hits}` : '—';
 
-  for (const [id, o] of [['ermBtn', erm], ['erm2Btn', erm2], ['b2Btn', b2]]) {
+  for (const [id, o] of [['ermBtn', erm], ['erm2Btn', erm2]]) {
     $(id).textContent = o.on ? 'ON' : 'OFF';
     $(id).classList.toggle('on', o.on);
   }
+  renderBlower('b2Btn', 'b2State', b2.on, b2.f, '[data-b2preset]', 'b2preset');
   $('b2FreqView').textContent = b2.f === null ? '—' : b2.f.toLocaleString();
   if (document.activeElement !== $('b2Slider') && b2.f !== null) $('b2Slider').value = b2.f;
 
@@ -286,6 +318,17 @@ function render() {
   $('autoBtn').classList.toggle('active', state.auto);
   renderCounter();
   scheduleDraw();
+}
+
+// Blower card: big ON/OFF button, status badge, and which power preset matches.
+function renderBlower(btnId, stateId, on, f, presetSel, presetKey) {
+  const b = $(btnId);
+  b.textContent = on ? 'Turn OFF' : 'Turn ON';
+  b.classList.toggle('on', on);
+  $(stateId).textContent = on ? 'RUNNING' : 'OFF';
+  $(stateId).classList.toggle('on', on);
+  document.querySelectorAll(presetSel).forEach(p =>
+    p.classList.toggle('active', f !== null && Math.abs(f - +p.dataset[presetKey]) <= 20));
 }
 
 function renderCounter() {
@@ -651,6 +694,8 @@ $('b2Btn').onclick = () => send(b2.on ? 'b2 off' : 'b2 on');
 $('b2Slider').oninput = e => requestB2Hz(+e.target.value);
 document.querySelectorAll('[data-b2step]').forEach(b =>
   b.onclick = () => requestB2Hz((b2.f ?? 25500) + +b.dataset.b2step));
+document.querySelectorAll('[data-b2preset]').forEach(b =>
+  b.onclick = () => requestB2Hz(+b.dataset.b2preset));
 $('b2Form').onsubmit = e => {
   e.preventDefault();
   const v = +$('b2Input').value;
