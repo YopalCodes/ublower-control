@@ -71,7 +71,7 @@
 <main>
   <div>
     <h1>uBlower Control</h1>
-    <div class="sub">XIAO RP2350 / nRF54L15 · D0 → P1-2 · needles on D1/D2 · optocoupler on D3 · USB or Bluetooth</div>
+    <div class="sub">XIAO RP2350 / nRF54L15 · D0 → P1-2 · needles on D1/D2 · opto D3/D5 · blower 2 on D4 · USB or Bluetooth</div>
   </div>
 
   <div class="card row" style="justify-content:space-between">
@@ -165,10 +165,40 @@
   <div class="card" style="display:grid; gap:14px">
     <div class="row" style="justify-content:space-between">
       <div>
-        <div style="font-weight:600">Optocoupler</div>
+        <div style="font-weight:600">Blower 2</div>
+        <div class="sub">D4 · own frequency · not used by Fill/Auto</div>
+      </div>
+      <button id="b2Btn" class="toggle" disabled>OFF</button>
+    </div>
+    <div class="freq"><span id="b2FreqView">—</span> <small>Hz</small></div>
+    <div>
+      <input id="b2Slider" type="range" min="24000" max="27000" step="10" value="25500" disabled>
+      <div class="scale"><span>24 kHz</span><span>25.5 kHz</span><span>27 kHz</span></div>
+    </div>
+    <form id="b2Form" class="row">
+      <button type="button" data-b2step="-100" disabled>−100</button>
+      <button type="button" data-b2step="-10" disabled>−10</button>
+      <button type="button" data-b2step="10" disabled>+10</button>
+      <button type="button" data-b2step="100" disabled>+100</button>
+      <input id="b2Input" type="number" min="24000" max="27000" step="1" placeholder="Hz" disabled>
+      <button type="submit" disabled>Set</button>
+    </form>
+  </div>
+
+  <div class="card" style="display:grid; gap:14px">
+    <div class="row" style="justify-content:space-between">
+      <div>
+        <div style="font-weight:600">Optocoupler 1</div>
         <div class="sub">D3 → ~470 Ω → opto LED</div>
       </div>
       <button id="ermBtn" class="toggle" disabled>OFF</button>
+    </div>
+    <div class="row" style="justify-content:space-between">
+      <div>
+        <div style="font-weight:600">Optocoupler 2</div>
+        <div class="sub">D5 → ~470 Ω → opto LED</div>
+      </div>
+      <button id="erm2Btn" class="toggle" disabled>OFF</button>
     </div>
   </div>
 
@@ -203,6 +233,9 @@ let runsDone = 0;        // WET events seen (page counter)
 let nextRunAt = null;    // performance.now() time the next auto run starts
 let pendingHz = null, sending = false;
 let erm = { on: false };   // D3 optocoupler, from the board's "OPTO on=<0|1>" line
+let erm2 = { on: false };  // D5 optocoupler, "OPTO2 on=<0|1>"
+let b2 = { f: null, on: false };     // blower 2 on D4, "B2 f=<Hz> on=<0|1>"
+let pendingB2 = null, sendingB2 = false;
 const points = [];   // { t, v, thr, base, on }
 const markers = [];  // { t, label, color }
 
@@ -231,9 +264,12 @@ function render() {
   }
   $('hitsView').textContent = state.mode === 'fill' ? `${state.hits} / ${cfg.hits}` : '—';
 
-  const eb = $('ermBtn');
-  eb.textContent = erm.on ? 'ON' : 'OFF';
-  eb.classList.toggle('on', erm.on);
+  for (const [id, o] of [['ermBtn', erm], ['erm2Btn', erm2], ['b2Btn', b2]]) {
+    $(id).textContent = o.on ? 'ON' : 'OFF';
+    $(id).classList.toggle('on', o.on);
+  }
+  $('b2FreqView').textContent = b2.f === null ? '—' : b2.f.toLocaleString();
+  if (document.activeElement !== $('b2Slider') && b2.f !== null) $('b2Slider').value = b2.f;
 
   const badge = $('wetBadge');
   badge.classList.remove('wet', 'near');
@@ -419,8 +455,18 @@ function onLine(line) {
     $('autoHzView').textContent = `(board: ${(+ahz[1]).toLocaleString()} Hz)`;
   }
 
+  const em2 = line.match(/^OPTO2 on=([01])/);
+  if (em2) { erm2.on = em2[1] === '1'; render(); log(line); return; }
+
   const em = line.match(/^(?:OPTO|ERM) on=([01])/);
   if (em) { erm.on = em[1] === '1'; render(); log(line); return; }
+
+  const bm = line.match(/^B2 f=(\d+) on=([01])/);
+  if (bm) {
+    if (pendingB2 === null && !sendingB2) b2.f = +bm[1];
+    b2.on = bm[2] === '1';
+    render(); log(line); return;
+  }
 
   const cm = line.match(/^CFG wet_rise=(\S+) dry_max=(\S+) hits=(\d+)/);
   if (cm) {
@@ -469,7 +515,24 @@ async function onConnected() {
   setEnabled(true, link.kind);
   await send('?');
   await send('opto');
+  await send('opto2');
+  await send('b2');
   await send('v on');
+}
+
+// Blower 2 frequency: coalesce slider moves like blower 1.
+async function requestB2Hz(hz) {
+  pendingB2 = clampHz(hz);
+  b2.f = pendingB2; render();
+  if (sendingB2) return;
+  sendingB2 = true;
+  try {
+    while (pendingB2 !== null) {
+      const f = pendingB2; pendingB2 = null;
+      await send('b2 ' + f);
+      await new Promise(r => setTimeout(r, 40));
+    }
+  } finally { sendingB2 = false; }
 }
 
 // USB: the nRF54L15 is reached through the XIAO's on-board USB-serial bridge.
@@ -513,8 +576,20 @@ async function connectBle() {
     optionalServices: [NUS],
   });
   dev.addEventListener('gattserverdisconnected', () => cleanup('Bluetooth disconnected'));
-  const server = await dev.gatt.connect();
-  const svc = await server.getPrimaryService(NUS);
+  // Android often fails the first GATT connect ("Connection attempt failed"): retry.
+  let server = null, svc = null;
+  for (let attempt = 1; attempt <= 3 && !svc; attempt++) {
+    try {
+      $('linkText').textContent = `Connecting (Bluetooth)… try ${attempt}/3`;
+      server = await dev.gatt.connect();
+      svc = await server.getPrimaryService(NUS);
+    } catch (e) {
+      log(`Bluetooth try ${attempt} failed: ${e.message}`, 'err');
+      try { dev.gatt.disconnect(); } catch {}
+      if (attempt === 3) { $('linkText').textContent = 'Not connected'; throw e; }
+      await new Promise(r => setTimeout(r, 1000));
+    }
+  }
   const rx = await svc.getCharacteristic(NUS_RX);
   const tx = await svc.getCharacteristic(NUS_TX);
   const dec = new TextDecoder();
@@ -542,6 +617,8 @@ async function cleanup(reason) {
 async function disconnect() {
   try { await send('off'); } catch {}
   try { await send('opto off'); } catch {}
+  try { await send('opto2 off'); } catch {}
+  try { await send('b2 off'); } catch {}
   await cleanup();
 }
 
@@ -569,6 +646,16 @@ $('autoHzForm').onsubmit = e => {
 $('resetRunsBtn').onclick = () => { runsDone = 0; renderCounter(); };
 $('slider').oninput = e => requestHz(+e.target.value);
 $('ermBtn').onclick = () => send(erm.on ? 'opto off' : 'opto on');
+$('erm2Btn').onclick = () => send(erm2.on ? 'opto2 off' : 'opto2 on');
+$('b2Btn').onclick = () => send(b2.on ? 'b2 off' : 'b2 on');
+$('b2Slider').oninput = e => requestB2Hz(+e.target.value);
+document.querySelectorAll('[data-b2step]').forEach(b =>
+  b.onclick = () => requestB2Hz((b2.f ?? 25500) + +b.dataset.b2step));
+$('b2Form').onsubmit = e => {
+  e.preventDefault();
+  const v = +$('b2Input').value;
+  if (v >= MIN_HZ && v <= MAX_HZ) requestB2Hz(v); else log(`enter ${MIN_HZ}..${MAX_HZ}`, 'err');
+};
 document.querySelectorAll('[data-step]').forEach(b =>
   b.onclick = () => requestHz(state.f + +b.dataset.step));
 document.querySelectorAll('[data-preset]').forEach(b =>
