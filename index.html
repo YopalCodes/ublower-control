@@ -4,248 +4,762 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>uBlower Control</title>
+<meta name="description" content="Auto run and manual control for the uBlower needle-sensing blower (USB or Bluetooth).">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
+  /* ---------- tokens ---------- */
   :root {
-    --bg: #f6f7f9; --card: #fff; --fg: #1b1f24; --muted: #667080; --line: #dde1e6;
-    --accent: #2563eb; --on: #16a34a; --off: #9aa3ae; --err: #dc2626; --wait: #d97706;
-    --wet: #0891b2; --grid: #eef0f3; --runbg: rgba(22, 163, 74, .08);
+    --bg: #f3f5f9; --surface: #ffffff; --surface-2: #f2f5f9; --fg: #0f172a; --muted: #5d6879;
+    --faint: #8a94a5; --line: #e2e7ef; --grid: #edf0f5;
+    --accent: #2f6fe4; --accent-2: #5b8cf0; --accent-soft: rgba(47,111,228,.10); --on-accent: #fff;
+    --liquid: #0891b2; --liquid-soft: rgba(8,145,178,.12);
+    --vibe: #7c3aed; --vibe-soft: rgba(124,58,237,.12);
+    --dry: #c2690a; --dry-soft: rgba(217,119,6,.13);
+    --base: #64748b; --base-soft: rgba(100,116,139,.13);
+    --ok: #15995a; --ok-soft: rgba(21,153,90,.12);
+    --danger: #d92d2d; --danger-soft: rgba(217,45,45,.10);
+    --shade-blow: rgba(47,111,228,.08); --shade-vibe: rgba(124,58,237,.11);
+    --shadow: 0 1px 2px rgba(15,23,42,.05), 0 6px 20px rgba(15,23,42,.06);
+    --shadow-lg: 0 1px 2px rgba(15,23,42,.05), 0 12px 36px rgba(30,52,110,.10);
+    --radius: 18px; --radius-sm: 12px;
+    --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
     color-scheme: light;
   }
   @media (prefers-color-scheme: dark) {
-    :root { --bg: #111418; --card: #1a1e24; --fg: #e6e9ed; --muted: #8b95a3; --line: #2b313a;
-            --accent: #60a5fa; --on: #22c55e; --off: #4b5563; --err: #f87171; --wait: #fbbf24;
-            --wet: #22d3ee; --grid: #232830; --runbg: rgba(34, 197, 94, .10); color-scheme: dark; }
+    :root:not([data-theme="light"]) {
+      --bg: #0b0f15; --surface: #131922; --surface-2: #1a212c; --fg: #e7ebf2; --muted: #9aa5b6;
+      --faint: #6f7a8c; --line: #252e3b; --grid: #1d2430;
+      --accent: #6d9bff; --accent-2: #8fb2ff; --accent-soft: rgba(109,155,255,.14); --on-accent: #0b1220;
+      --liquid: #2cc6e8; --liquid-soft: rgba(44,198,232,.14);
+      --vibe: #a98bff; --vibe-soft: rgba(169,139,255,.16);
+      --dry: #f5b13d; --dry-soft: rgba(245,177,61,.15);
+      --base: #94a3b8; --base-soft: rgba(148,163,184,.14);
+      --ok: #3ddc97; --ok-soft: rgba(61,220,151,.14);
+      --danger: #ff7272; --danger-soft: rgba(255,114,114,.13);
+      --shade-blow: rgba(109,155,255,.10); --shade-vibe: rgba(169,139,255,.14);
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.25);
+      --shadow-lg: 0 1px 2px rgba(0,0,0,.4), 0 14px 40px rgba(0,0,0,.35);
+      color-scheme: dark;
+    }
   }
+  :root[data-theme="dark"] {
+    --bg: #0b0f15; --surface: #131922; --surface-2: #1a212c; --fg: #e7ebf2; --muted: #9aa5b6;
+    --faint: #6f7a8c; --line: #252e3b; --grid: #1d2430;
+    --accent: #6d9bff; --accent-2: #8fb2ff; --accent-soft: rgba(109,155,255,.14); --on-accent: #0b1220;
+    --liquid: #2cc6e8; --liquid-soft: rgba(44,198,232,.14);
+    --vibe: #a98bff; --vibe-soft: rgba(169,139,255,.16);
+    --dry: #f5b13d; --dry-soft: rgba(245,177,61,.15);
+    --base: #94a3b8; --base-soft: rgba(148,163,184,.14);
+    --ok: #3ddc97; --ok-soft: rgba(61,220,151,.14);
+    --danger: #ff7272; --danger-soft: rgba(255,114,114,.13);
+    --shade-blow: rgba(109,155,255,.10); --shade-vibe: rgba(169,139,255,.14);
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.25);
+    --shadow-lg: 0 1px 2px rgba(0,0,0,.4), 0 14px 40px rgba(0,0,0,.35);
+    color-scheme: dark;
+  }
+
+  /* ---------- base ---------- */
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--fg);
-         font: 15px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; padding: 24px 16px; }
-  main { max-width: 640px; margin: 0 auto; display: grid; gap: 16px; }
-  h1 { font-size: 20px; margin: 0; }
-  .sub { color: var(--muted); font-size: 13px; }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
-  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  button { font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line);
-           background: var(--card); color: var(--fg); cursor: pointer; }
-  button:hover:not(:disabled) { border-color: var(--accent); }
-  button:disabled { opacity: .45; cursor: default; }
-  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--off); display: inline-block; }
-  .dot.live { background: var(--on); }
-  .freq { font-size: 44px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -1px; }
-  .freq small { font-size: 18px; color: var(--muted); font-weight: 500; }
+  [hidden] { display: none !important; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 var(--font);
+         -webkit-font-smoothing: antialiased; padding: 0 16px 40px; overflow-x: hidden; }
+  main { max-width: 1080px; margin: 0 auto; display: grid; gap: 18px; }
+  h1, h2, h3 { margin: 0; letter-spacing: -.01em; }
+  p { margin: 0; }
+  svg.i { width: 20px; height: 20px; flex: none; stroke: currentColor; fill: none; stroke-width: 2;
+          stroke-linecap: round; stroke-linejoin: round; }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+  .num { font-variant-numeric: tabular-nums; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+          box-shadow: var(--shadow); padding: 20px; min-width: 0; }
+  .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+  .card-title { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 700; }
+  .card-title svg.i { color: var(--muted); }
+
+  button { font: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  button:disabled { cursor: not-allowed; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 10px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px;
+         padding: 8px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface);
+         font-weight: 600; font-size: 14px; transition: background .15s, border-color .15s, color .15s, transform .1s, opacity .15s; }
+  .btn:hover:not(:disabled) { border-color: var(--accent); }
+  .btn:active:not(:disabled) { transform: translateY(1px); }
+  .btn:disabled { opacity: .45; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover:not(:disabled) { background: var(--accent-2); border-color: var(--accent-2); }
+  .btn.ghost { background: transparent; }
+  .btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+  input[type=number], input[type=text] { font: inherit; font-size: 14px; padding: 8px 10px; border-radius: 10px;
+         border: 1px solid var(--line); background: var(--surface-2); color: var(--fg); min-width: 0; min-height: 40px; }
+  input:disabled { opacity: .5; }
   input[type=range] { width: 100%; accent-color: var(--accent); }
-  input[type=number], input[type=text] { font: inherit; padding: 7px 10px; border-radius: 8px;
-           border: 1px solid var(--line); background: var(--bg); color: var(--fg); width: 120px; }
-  .toggle { min-width: 120px; font-weight: 600; }
-  .toggle.on { background: var(--on); border-color: var(--on); color: #fff; }
-  .scale { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; }
-  pre { margin: 0; max-height: 160px; overflow: auto; font: 12px/1.45 ui-monospace, Consolas, monospace;
-        color: var(--muted); white-space: pre-wrap; }
-  .err { color: var(--err); }
-  .warn { font-size: 13px; color: var(--err); }
 
-  .volts { font-size: 40px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -1px; }
-  .volts small { font-size: 16px; color: var(--muted); font-weight: 500; }
-  .pill { font-size: 13px; font-weight: 600; padding: 3px 10px; border-radius: 999px;
-          border: 1px solid var(--line); color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
-  .pill.active { color: var(--wait); border-color: var(--wait); }
-  .wetbadge { font-size: 18px; font-weight: 700; padding: 6px 18px; border-radius: 10px; letter-spacing: 1px;
-              background: var(--off); color: #fff; min-width: 96px; text-align: center; transition: background .15s; }
-  .wetbadge.wet { background: var(--wet); }
-  .wetbadge.near { background: var(--wait); }
-  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
-  .stat { background: var(--bg); border-radius: 8px; padding: 8px 10px; }
-  .stat .k { font-size: 12px; color: var(--muted); }
-  .stat .v { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
-  .chartwrap { position: relative; width: 100%; height: 220px; }
+  /* ---------- header ---------- */
+  .top { max-width: 1080px; margin: 0 auto; padding: 18px 0 16px; display: flex; align-items: center;
+         justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .logo { width: 42px; height: 42px; border-radius: 13px; display: grid; place-items: center; flex: none;
+          background: linear-gradient(140deg, var(--accent), var(--liquid)); color: #fff;
+          box-shadow: 0 6px 16px rgba(47,111,228,.28); }
+  .logo svg.i { width: 24px; height: 24px; stroke-width: 2.2; }
+  .brand h1 { font-size: 20px; font-weight: 800; }
+  .brand p { font-size: 13px; color: var(--muted); }
+  .conn { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .conn-status { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600;
+                 padding: 7px 12px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line);
+                 color: var(--muted); }
+  .conn-status .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--faint); }
+  .conn-status.live { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 35%, var(--line)); background: var(--ok-soft); }
+  .conn-status.live .dot { background: var(--ok); box-shadow: 0 0 0 0 var(--ok); animation: ping 2s infinite; }
+  @keyframes ping { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 60%, transparent); }
+                    80%,100% { box-shadow: 0 0 0 7px transparent; } }
+
+  .demo-banner { display: flex; gap: 10px; align-items: center; padding: 10px 14px; border-radius: 12px;
+                 background: var(--vibe-soft); color: var(--vibe); font-size: 13px; font-weight: 600; }
+
+  /* ---------- empty state ---------- */
+  .empty { display: grid; grid-template-columns: 1fr; gap: 18px; padding: 24px; }
+  .empty h2 { font-size: 20px; font-weight: 800; }
+  .empty-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px;
+                 grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .empty-steps li { display: flex; gap: 12px; align-items: flex-start; padding: 14px; border-radius: var(--radius-sm);
+                    background: var(--surface-2); }
+  .empty-steps b { display: block; font-size: 14px; }
+  .empty-steps span.n { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; flex: none;
+                        background: var(--accent-soft); color: var(--accent); font-weight: 800; font-size: 13px; }
+  .empty-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  .empty-actions .btn { flex: 1 1 220px; min-height: 48px; padding: 10px 18px; font-size: 15px; }
+  .hints { display: grid; gap: 6px; }
+  .hint { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--dry); }
+  .hint svg.i { width: 16px; height: 16px; margin-top: 2px; }
+
+  /* ---------- hero ---------- */
+  .hero { padding: 0; overflow: hidden; box-shadow: var(--shadow-lg); position: relative; }
+  .hero::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 4px; background: var(--tone, var(--line));
+                  transition: background .4s; }
+  .hero-main { padding: 24px 24px 20px; display: grid; gap: 22px; }
+  .hero-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--muted);
+             display: flex; align-items: center; gap: 8px; }
+  .badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 5px 11px;
+           border-radius: 999px; background: var(--surface-2); color: var(--muted); white-space: nowrap; }
+  .badge .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .badge.run { background: var(--ok-soft); color: var(--ok); }
+  .badge.run .dot { animation: blink 1.4s infinite; }
+  .badge.err { background: var(--danger-soft); color: var(--danger); }
+  @keyframes blink { 50% { opacity: .25; } }
+
+  .phase { display: flex; gap: 16px; align-items: center; }
+  .phase-ico { width: 56px; height: 56px; border-radius: 16px; display: grid; place-items: center; flex: none;
+               background: var(--tone-soft, var(--surface-2)); color: var(--tone, var(--muted)); transition: background .4s, color .4s; }
+  .phase-ico svg.i { width: 28px; height: 28px; }
+  .phase h2 { font-size: clamp(21px, 4.6vw, 28px); font-weight: 800; line-height: 1.2; }
+  .phase p { color: var(--muted); font-size: 14px; margin-top: 4px; }
+  .phase .since { color: var(--faint); font-size: 13px; }
+
+  /* stepper */
+  .stepper-wrap { position: relative; }
+  .stepper { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); position: relative; }
+  .step { position: relative; display: grid; justify-items: center; text-align: center; gap: 8px; padding: 0 4px; z-index: 1; }
+  .step::before { content: ""; position: absolute; top: 27px; left: -50%; right: 50%; height: 3px; border-radius: 3px;
+                  background: var(--line); z-index: -1; }
+  .step:first-child::before { display: none; }
+  .step .node { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; position: relative;
+                background: var(--surface); border: 2px solid var(--line); color: var(--faint);
+                transition: background .3s, border-color .3s, color .3s, transform .3s; }
+  .step .node svg.i { width: 24px; height: 24px; }
+  .step .label { font-weight: 700; font-size: 14px; line-height: 1.25; color: var(--muted); transition: color .3s; }
+  .step .sub { font-size: 12px; color: var(--faint); line-height: 1.3; }
+  .step[data-c="base"] { --c: var(--base); --cs: var(--base-soft); }
+  .step[data-c="liquid"] { --c: var(--liquid); --cs: var(--liquid-soft); }
+  .step[data-c="vibe"] { --c: var(--vibe); --cs: var(--vibe-soft); }
+  .step[data-c="dry"] { --c: var(--dry); --cs: var(--dry-soft); }
+  .step.done .node { border-color: var(--c); color: var(--c); }
+  .step.active .node { background: var(--c); border-color: var(--c); color: #fff; transform: scale(1.08); }
+  .step.active .node::after { content: ""; position: absolute; inset: -8px; border-radius: 50%;
+                              border: 2px solid var(--c); opacity: 0; animation: halo 1.8s ease-out infinite; }
+  .step.active .label { color: var(--fg); }
+  .step.active .sub { color: var(--c); font-weight: 600; }
+  @keyframes halo { 0% { transform: scale(.85); opacity: .7; } 100% { transform: scale(1.25); opacity: 0; } }
+  .ring { position: absolute; inset: -6px; width: calc(100% + 12px); height: calc(100% + 12px); transform: rotate(-90deg);
+          pointer-events: none; opacity: 0; transition: opacity .3s; }
+  .ring circle { fill: none; stroke: var(--vibe); stroke-width: 3; stroke-linecap: round; transition: stroke-dashoffset .3s linear; }
+  .step.active .ring { opacity: 1; }
+  .step.active .node:has(.ring)::after { display: none; }
+  .step.active[data-step="vibrate"] .node svg.i { animation: shake .18s linear infinite; }
+  .step.active[data-step="dry"] .node svg.i, .step.active[data-step="detect"] .node svg.i { animation: drift 1.6s ease-in-out infinite; }
+  @keyframes drift { 50% { transform: translateY(-2px); } }
+  .loop { margin: 6px calc(100% / 8) 0 calc(100% / 4 + 100% / 8); height: 18px; position: relative;
+          border: 2px dashed var(--line); border-top: 0; border-radius: 0 0 14px 14px; }
+  .loop::before { content: ""; position: absolute; left: -7px; top: -6px; border: 6px solid transparent;
+                  border-bottom: 8px solid var(--line); border-top: 0; }
+  .loop span { position: absolute; left: 50%; bottom: -10px; transform: translateX(-50%); background: var(--surface);
+               padding: 0 8px; font-size: 12px; font-weight: 600; color: var(--muted); white-space: nowrap;
+               display: inline-flex; gap: 5px; align-items: center; }
+  .loop span svg.i { width: 13px; height: 13px; }
+  .stepper-wrap.looping .loop { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+  .stepper-wrap.looping .loop::before { border-bottom-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+
+  /* actions + metrics */
+  .hero-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 18px; align-items: center; }
+  .actions { display: grid; gap: 10px; }
+  .cta { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; min-height: 64px;
+         border-radius: 16px; border: 0; font-size: 18px; font-weight: 800; letter-spacing: .01em;
+         background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 70%, var(--liquid)));
+         color: #fff; box-shadow: 0 8px 22px color-mix(in srgb, var(--accent) 32%, transparent);
+         transition: transform .12s, box-shadow .2s, filter .2s, opacity .2s; }
+  .cta svg.i { width: 22px; height: 22px; fill: currentColor; stroke: none; }
+  .cta:hover:not(:disabled) { filter: brightness(1.06); }
+  .cta:active:not(:disabled) { transform: scale(.985); }
+  .cta.stop { background: #dc2626; box-shadow: 0 8px 22px color-mix(in srgb, var(--danger) 30%, transparent); }
+  .cta:disabled { opacity: .45; box-shadow: none; filter: grayscale(.4); }
+  .actions .row2 { display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; }
+  .linkbtn { background: none; border: 0; padding: 6px 8px; font-size: 13px; font-weight: 600; color: var(--accent);
+             border-radius: 8px; display: inline-flex; gap: 6px; align-items: center; }
+  .linkbtn:disabled { color: var(--faint); }
+  .linkbtn svg.i { width: 15px; height: 15px; }
+  .metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .metric { background: var(--surface-2); border-radius: 14px; padding: 12px 14px; min-width: 0; }
+  .metric .k { font-size: 12px; color: var(--muted); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .metric .v { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.02em; line-height: 1.2; }
+
+  /* live devices strip */
+  .devstrip { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr); gap: 10px; }
+  .chip { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line);
+          background: var(--surface); min-width: 0; transition: border-color .3s, background .3s; }
+  .chip .ico { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; flex: none;
+               background: var(--surface-2); color: var(--faint); transition: background .3s, color .3s; }
+  .chip .ico svg.i { width: 22px; height: 22px; }
+  .chip .name { font-weight: 700; font-size: 14px; }
+  .chip .val { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chip .txt { min-width: 0; flex: 1; }
+  .tag { font-size: 11px; font-weight: 800; letter-spacing: .06em; padding: 3px 8px; border-radius: 999px;
+         background: var(--surface-2); color: var(--muted); flex: none; }
+  .chip.on.blow { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); background: var(--accent-soft); }
+  .chip.on.blow .ico { background: var(--accent); color: #fff; }
+  .chip.on.blow .tag { background: var(--accent); color: var(--on-accent); }
+  .chip.on.vib { border-color: color-mix(in srgb, var(--vibe) 45%, var(--line)); background: var(--vibe-soft); }
+  .chip.on.vib .ico { background: var(--vibe); color: #fff; }
+  .chip.on.vib .tag { background: var(--vibe); color: #fff; }
+  .spin { transform-origin: 50% 50%; }
+  .on .spin { animation: spin .7s linear infinite; }
+  .on .shake { animation: shake .16s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes shake { 0%,100% { transform: translate(0,0) rotate(0); } 25% { transform: translate(-1.5px,.5px) rotate(-4deg); }
+                     50% { transform: translate(1px,-.5px) rotate(3deg); } 75% { transform: translate(1.5px,.5px) rotate(-2deg); } }
+
+  .meter { padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line); min-width: 0; display: grid; gap: 8px; }
+  .meter-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .meter-top .name { font-weight: 700; font-size: 14px; }
+  .meter-top .state { font-size: 12px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+  .meter-top .state.wet { color: var(--liquid); }
+  .meter-top .state.rising { color: var(--dry); }
+  .bar { position: relative; height: 10px; border-radius: 999px; background: var(--surface-2); overflow: visible; }
+  .bar .fill { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 999px; background: var(--base);
+               transition: width .2s ease-out, background .3s; }
+  .bar .fill.rising { background: var(--dry); }
+  .bar .fill.wet { background: var(--liquid); }
+  .bar .tick { position: absolute; top: -4px; bottom: -4px; width: 2px; border-radius: 2px; background: var(--faint); }
+  .bar .tick.wet { background: var(--liquid); }
+  .bar-scale { position: relative; height: 14px; font-size: 11px; color: var(--faint); }
+  .bar-scale span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+
+  /* auto settings footer */
+  .hero-foot { border-top: 1px solid var(--line); background: var(--surface-2); padding: 14px 24px;
+               display: flex; align-items: center; gap: 12px 18px; flex-wrap: wrap; }
+  .hero-foot .lbl { font-size: 13px; font-weight: 700; }
+  .hero-foot .lbl small { display: block; font-weight: 500; color: var(--muted); font-size: 12px; }
+  .seg { display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 4px; border-radius: 12px;
+         background: var(--surface-2); border: 1px solid var(--line); }
+  .hero-foot .seg { background: var(--surface); }
+  .seg button { border: 0; background: transparent; padding: 7px 12px; border-radius: 9px; font-weight: 600; font-size: 13px;
+                color: var(--muted); min-height: 34px; transition: background .15s, color .15s; line-height: 1.2; }
+  .seg button small { display: block; font-size: 11px; font-weight: 500; opacity: .8; }
+  .seg button:hover:not(:disabled) { color: var(--fg); }
+  .seg button.active { background: var(--accent); color: var(--on-accent); box-shadow: 0 2px 6px color-mix(in srgb, var(--accent) 30%, transparent); }
+  .seg button:disabled { opacity: .5; }
+  .hz-form { display: flex; align-items: center; gap: 6px; }
+  .hz-form input { width: 96px; }
+  .hz-form .muted { font-size: 13px; }
+
+  /* ---------- chart + timeline ---------- */
+  .grid2 { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+  .vread { display: flex; align-items: baseline; gap: 10px; }
+  .vread .big { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+  .vread .big small { font-size: 14px; color: var(--muted); font-weight: 600; margin-left: 2px; }
+  .pill { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; padding: 4px 9px;
+          border-radius: 999px; background: var(--surface-2); color: var(--muted); }
+  .pill.wet { background: var(--liquid-soft); color: var(--liquid); }
+  .pill.rising { background: var(--dry-soft); color: var(--dry); }
+  .chartwrap { position: relative; width: 100%; height: 240px; }
   canvas { width: 100%; height: 100%; display: block; }
-  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
-  .legend i { display: inline-block; width: 16px; height: 0; border-top: 2px solid; vertical-align: middle; margin-right: 5px; }
-  .fill { min-width: 120px; font-weight: 600; }
-  .fill.active { background: var(--err); border-color: var(--err); color: #fff; }
-  #lastEvt { font-size: 13px; color: var(--muted); min-height: 1.4em; }
-  #lastEvt.wetEvt { color: var(--wet); font-weight: 600; }
+  .chart-empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--faint); font-size: 13px; pointer-events: none; }
+  .chart-empty span { background: var(--surface); padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); }
+  .legend { display: flex; gap: 6px 16px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 12px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { display: inline-block; width: 18px; height: 0; border-top: 2px solid; }
+  .legend i.box { height: 10px; border: 0; border-radius: 3px; }
 
-  /* Blower + ERM units */
-  .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
-  .unit { display: grid; gap: 14px; align-content: start; }
-  .unit-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
-  .unit-title { font-size: 18px; font-weight: 700; }
-  .state { font-size: 12px; font-weight: 700; letter-spacing: .5px; padding: 4px 10px; border-radius: 999px;
-           background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
-  .state.on { background: var(--on); color: #fff; border-color: var(--on); }
-  .big { width: 100%; padding: 14px; font-size: 17px; font-weight: 700; }
-  .big.on { background: var(--on); border-color: var(--on); color: #fff; }
-  .k { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
-  .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-  .seg button { padding: 10px 0; font-weight: 600; }
-  .seg button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .freqline { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .freqline span { font-size: 22px; font-weight: 600; color: var(--fg); }
-  details summary { cursor: pointer; font-size: 13px; color: var(--muted); margin-bottom: 8px; }
-  details input[type=number] { width: 100px; }
-  .erm-row { display: flex; justify-content: space-between; align-items: center; gap: 8px;
-             border-top: 1px solid var(--line); padding-top: 12px; }
-  .erm-title { font-weight: 600; }
+  .timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; max-height: 330px; overflow-y: auto;
+              overscroll-behavior: contain; }
+  .evt { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 10px; padding: 8px 6px; border-radius: 10px; }
+  .evt:first-child { background: var(--surface-2); }
+  .evt .ei { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center;
+             background: var(--surface-2); color: var(--muted); }
+  .evt:first-child .ei { background: var(--surface); }
+  .evt .ei svg.i { width: 17px; height: 17px; }
+  .evt .et { font-size: 14px; line-height: 1.35; overflow-wrap: anywhere; }
+  .evt .et b { font-weight: 700; }
+  .evt .tm { font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .evt.liquid .ei { color: var(--liquid); background: var(--liquid-soft); }
+  .evt.vibe .ei { color: var(--vibe); background: var(--vibe-soft); }
+  .evt.dry .ei { color: var(--dry); background: var(--dry-soft); }
+  .evt.start .ei, .evt.blow .ei { color: var(--accent); background: var(--accent-soft); }
+  .evt.ok .ei { color: var(--ok); background: var(--ok-soft); }
+  .evt.err .ei { color: var(--danger); background: var(--danger-soft); }
+  .evt.err .et { color: var(--danger); }
+  .evt.minor .et { color: var(--muted); font-size: 13px; }
+  .tl-empty { color: var(--faint); font-size: 13px; padding: 18px 6px; text-align: center; }
+
+  /* ---------- manual ---------- */
+  .section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 10px 2px 0; }
+  .section-head h2 { font-size: 18px; font-weight: 800; }
+  .lock { display: flex; gap: 10px; align-items: center; padding: 12px 14px; border-radius: 12px; font-size: 13px;
+          background: var(--accent-soft); color: var(--fg); }
+  .lock svg.i { color: var(--accent); }
+  .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
+  .unit { display: grid; gap: 16px; align-content: start; transition: opacity .3s; }
+  .unit.locked .unit-body { opacity: .55; }
+  .unit-head { display: flex; align-items: center; gap: 12px; }
+  .unit-head .ico { width: 44px; height: 44px; border-radius: 13px; display: grid; place-items: center; flex: none;
+                    background: var(--surface-2); color: var(--muted); transition: background .3s, color .3s; }
+  .unit-head .ico svg.i { width: 24px; height: 24px; }
+  .unit-head.on .ico { background: var(--accent); color: #fff; }
+  .unit-head .tt { flex: 1; min-width: 0; }
+  .unit-title { font-size: 17px; font-weight: 800; }
+  .unit-sub { font-size: 12px; color: var(--muted); }
+  .unit-head .tag.on { background: var(--accent); color: var(--on-accent); }
+  .unit-body { display: grid; gap: 14px; transition: opacity .3s; }
+  .power { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .bigtoggle { min-height: 52px; width: 100%; font-size: 16px; font-weight: 800; border-radius: 14px; }
+  .bigtoggle.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .k { font-size: 12px; color: var(--muted); font-weight: 600; margin-bottom: 6px; }
+  .seg.full { display: grid; width: 100%; }
+  .seg.full button { padding: 9px 4px; }
+  .freqline { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; display: flex; justify-content: space-between; align-items: baseline; }
+  .freqline b { font-size: 22px; font-weight: 800; color: var(--fg); letter-spacing: -.01em; }
+  details.tune > summary { cursor: pointer; font-size: 13px; color: var(--accent); font-weight: 600; list-style: none;
+                           display: inline-flex; align-items: center; gap: 6px; padding: 4px 0; border-radius: 6px; }
+  details.tune > summary::-webkit-details-marker { display: none; }
+  details.tune > summary::before { content: "›"; display: inline-block; font-size: 16px; transition: transform .2s; }
+  details.tune[open] > summary::before { transform: rotate(90deg); }
+  .tune-body { display: grid; gap: 8px; margin-top: 8px; }
+  .scale { display: flex; justify-content: space-between; color: var(--faint); font-size: 11px; }
+  .steps { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .steps .btn { min-height: 36px; padding: 6px 10px; font-size: 13px; }
+  .steps input { width: 100px; }
+  .erm-row { display: flex; justify-content: space-between; align-items: center; gap: 12px;
+             border-top: 1px solid var(--line); padding-top: 14px; }
+  .erm-row .who { display: flex; align-items: center; gap: 12px; }
+  .erm-row .ico { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; background: var(--surface-2); color: var(--muted); }
+  .erm-row.on .ico { background: var(--vibe); color: #fff; }
+  .switch { display: inline-flex; align-items: center; gap: 10px; border: 0; background: none; padding: 4px; border-radius: 999px; font-weight: 700; font-size: 13px; }
+  .switch .trk { width: 48px; height: 28px; border-radius: 999px; background: var(--line); position: relative; transition: background .2s; }
+  .switch .trk::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%;
+                        background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .2s; }
+  .switch[aria-checked="true"] .trk { background: var(--vibe); }
+  .switch[aria-checked="true"] .trk::after { transform: translateX(20px); }
+  .switch .st { min-width: 26px; text-align: left; color: var(--muted); }
+  .switch[aria-checked="true"] .st { color: var(--vibe); }
+  .switch:disabled { opacity: .5; }
+
+  /* ---------- developer ---------- */
+  details.dev { padding: 0; }
+  details.dev > summary { cursor: pointer; padding: 16px 20px; display: flex; align-items: center; gap: 10px; font-weight: 700;
+                          list-style: none; border-radius: var(--radius); }
+  details.dev > summary::-webkit-details-marker { display: none; }
+  details.dev > summary .chev { margin-left: auto; transition: transform .2s; color: var(--muted); }
+  details.dev[open] > summary .chev { transform: rotate(180deg); }
+  details.dev > summary svg.i { color: var(--muted); }
+  .dev-body { padding: 0 20px 20px; display: grid; gap: 14px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+  .stat { background: var(--surface-2); border-radius: 10px; padding: 8px 12px; min-width: 0; }
+  .stat .k { margin: 0; }
+  .stat .v { font: 600 14px/1.4 var(--mono); overflow-wrap: anywhere; }
+  .raw { display: flex; gap: 8px; }
+  .raw input { flex: 1; font-family: var(--mono); }
+  pre#log { margin: 0; max-height: 240px; overflow: auto; font: 12px/1.5 var(--mono); color: var(--muted);
+            white-space: pre-wrap; background: var(--surface-2); border-radius: 10px; padding: 10px 12px; }
+  pre#log .err { color: var(--danger); }
+  pre#log .tx { color: var(--accent); }
+  footer { text-align: center; font-size: 12px; color: var(--faint); padding-top: 4px; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  /* ---------- responsive ---------- */
+  @media (max-width: 860px) {
+    .grid2 { grid-template-columns: minmax(0, 1fr); }
+    .hero-row { grid-template-columns: minmax(0, 1fr); }
+    .devstrip { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .devstrip .meter { grid-column: 1 / -1; }
+  }
+  @media (max-width: 560px) {
+    body { font-size: 14px; }
+    .card { padding: 16px; border-radius: 16px; }
+    .hero-main { padding: 20px 16px 16px; gap: 18px; }
+    .hero-foot { padding: 14px 16px; }
+    .phase { gap: 12px; align-items: flex-start; }
+    .phase-ico { width: 46px; height: 46px; border-radius: 14px; }
+    .phase-ico svg.i { width: 24px; height: 24px; }
+    .step .node { width: 46px; height: 46px; }
+    .step::before { top: 22px; }
+    .step .node svg.i { width: 20px; height: 20px; }
+    .step .label { font-size: 12.5px; }
+    .step .sub { font-size: 11px; }
+    .metric { padding: 10px 12px; }
+    .metric .v { font-size: 21px; }
+    .chip { padding: 10px; gap: 10px; }
+    .chip .ico { width: 34px; height: 34px; border-radius: 10px; }
+    .chip .tag { display: none; }
+    .eyebrow-extra { display: none; }
+    .metric .k, .chip .val { white-space: normal; }
+    .loop { margin-top: 14px; }
+    .card-head { flex-wrap: wrap; }
+    .chartwrap { height: 200px; }
+    .top { padding-top: 14px; }
+    .conn { width: 100%; }
+    .conn-status { flex: 1 1 100%; justify-content: center; }
+    .conn .btn { flex: 1; }
+    .pair { grid-template-columns: minmax(0, 1fr); }
+    .hero-foot .seg { width: 100%; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
 </style>
 </head>
 <body>
-<main>
-  <div>
-    <h1>uBlower Control</h1>
-    <div class="sub">XIAO RP2350 / nRF54L15 · D0 → P1-2 · needles on D1/D2 · blower 1 + ERM 1 on D0/D3 · blower 2 + ERM 2 on D4/D5 · USB or Bluetooth</div>
-  </div>
 
-  <div class="card row" style="justify-content:space-between">
-    <div class="row"><span id="linkDot" class="dot"></span><span id="linkText">Not connected</span></div>
-    <div class="row">
-      <button id="connectBtn" class="primary">USB</button>
-      <button id="bleBtn" class="primary">Bluetooth</button>
+<!-- icon sprite -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-fan" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1.6"/><path d="M12 10.4c-.6-3 .4-6.6 3.3-6.6 2 0 2.9 1.6 2.2 3.1-.9 1.9-3.1 3-5.5 3.5Z"/><path d="M12 10.4c-.6-3 .4-6.6 3.3-6.6 2 0 2.9 1.6 2.2 3.1-.9 1.9-3.1 3-5.5 3.5Z" transform="rotate(120 12 12)"/><path d="M12 10.4c-.6-3 .4-6.6 3.3-6.6 2 0 2.9 1.6 2.2 3.1-.9 1.9-3.1 3-5.5 3.5Z" transform="rotate(240 12 12)"/></symbol>
+  <symbol id="i-vibe" viewBox="0 0 24 24"><path d="m2 8 2 2-2 2 2 2-2 2"/><path d="m22 8-2 2 2 2-2 2 2 2"/><rect x="8" y="5" width="8" height="14" rx="2"/><path d="M11 15.5h2"/></symbol>
+  <symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 2.8c3.6 4.1 6.2 7.5 6.2 10.6a6.2 6.2 0 0 1-12.4 0c0-3.1 2.6-6.5 6.2-10.6Z"/><path d="M9 14.5a3 3 0 0 0 3 3"/></symbol>
+  <symbol id="i-wind" viewBox="0 0 24 24"><path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/></symbol>
+  <symbol id="i-pulse" viewBox="0 0 24 24"><path d="M3 12h4l2.5-6 5 12 2.5-6h4"/></symbol>
+  <symbol id="i-usb" viewBox="0 0 24 24"><circle cx="10" cy="7" r="1"/><circle cx="4" cy="20" r="1"/><path d="M4.7 19.3 19 5"/><path d="m21 3-3 1 2 2Z"/><path d="M9.26 7.68 5 12l2 5"/><path d="m10 14 5 2 3.5-3.5"/><path d="m18 12 1-1 1 1-1 1Z"/></symbol>
+  <symbol id="i-bt" viewBox="0 0 24 24"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12.5-7.5a1 1 0 0 0 0-1.72L8.5 3.64A1 1 0 0 0 7 4.5Z"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="3"/></symbol>
+  <symbol id="i-repeat" viewBox="0 0 24 24"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+  <symbol id="i-plug" viewBox="0 0 24 24"><path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></symbol>
+  <symbol id="i-term" viewBox="0 0 24 24"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 21v-7"/><path d="M4 10V3"/><path d="M12 21v-9"/><path d="M12 8V3"/><path d="M20 21v-5"/><path d="M20 12V3"/><path d="M2 14h4"/><path d="M10 8h4"/><path d="M18 16h4"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m7 15 4-6 4 4 5-8"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></symbol>
+  <symbol id="i-unlink" viewBox="0 0 24 24"><path d="M9 17H7A5 5 0 0 1 7 7"/><path d="M15 7h2a5 5 0 0 1 4 8"/><path d="M8 12h4"/><path d="m2 2 20 20"/></symbol>
+</svg>
+
+<header class="top">
+  <div class="brand">
+    <div class="logo" aria-hidden="true"><svg class="i"><use href="#i-wind"/></svg></div>
+    <div>
+      <h1>uBlower</h1>
+      <p>Needle-sensing blower &amp; vibration control</p>
     </div>
   </div>
-  <div id="noSerial" class="card warn" hidden>
-    This browser has neither Web Serial (USB) nor Web Bluetooth. Use Chrome or Edge on a computer or
-    Android phone. Bluetooth needs the page opened from an https:// address (or localhost).
+  <div class="conn">
+    <span id="connStatus" class="conn-status" role="status" aria-live="polite"><span class="dot"></span><span id="linkText">Not connected</span></span>
+    <button id="connectBtn" class="btn"><svg class="i"><use href="#i-usb"/></svg><span class="lbl">USB</span></button>
+    <button id="bleBtn" class="btn"><svg class="i"><use href="#i-bt"/></svg><span class="lbl">Bluetooth</span></button>
+    <button id="demoBtn" class="btn" hidden><svg class="i"><use href="#i-pulse"/></svg><span class="lbl">Demo</span></button>
+  </div>
+</header>
+
+<main>
+  <div id="demoBanner" class="demo-banner" hidden>
+    <svg class="i"><use href="#i-info"/></svg>
+    <span>Demo mode: a simulated device answers in place of real hardware. Remove <code>?demo</code> from the address to use the real board.</span>
   </div>
 
-  <div class="card" style="display:grid; gap:12px">
-    <div class="row" style="justify-content:space-between">
-      <div class="volts"><span id="voltView">—</span> <small>V</small></div>
-      <div class="row">
-        <span id="modeView" class="pill">idle</span>
-        <span id="wetBadge" class="wetbadge">—</span>
+  <!-- empty state: shown until connected -->
+  <section id="emptyState" class="card empty" aria-labelledby="emptyTitle">
+    <div>
+      <h2 id="emptyTitle">Connect to your uBlower</h2>
+      <p class="muted" style="margin-top:4px">The page talks to the XIAO board directly from your browser. Nothing is installed.</p>
+    </div>
+    <ol class="empty-steps">
+      <li><span class="n">1</span><div><b>Power the board</b><span class="muted small">Plug its USB-C cable into this computer, or power it for Bluetooth.</span></div></li>
+      <li><span class="n">2</span><div><b>Pick a connection</b><span class="muted small"><b style="display:inline">USB</b> on a desktop, <b style="display:inline">Bluetooth</b> on an Android phone or a desktop.</span></div></li>
+      <li><span class="n">3</span><div><b>Choose the device</b><span class="muted small">Select the serial port, or the Bluetooth device named <b style="display:inline">nrfELISA</b>.</span></div></li>
+    </ol>
+    <div class="empty-actions">
+      <button id="emptyUsb" class="btn primary"><svg class="i"><use href="#i-usb"/></svg>Connect over USB</button>
+      <button id="emptyBle" class="btn primary"><svg class="i"><use href="#i-bt"/></svg>Connect over Bluetooth</button>
+    </div>
+    <div id="apiHints" class="hints"></div>
+  </section>
+
+  <!-- HERO: auto run -->
+  <section id="hero" class="card hero" aria-labelledby="phaseTitle">
+    <div class="hero-main">
+      <div class="hero-top">
+        <div class="eyebrow"><svg class="i" style="width:16px;height:16px"><use href="#i-repeat"/></svg>Auto run<span class="eyebrow-extra"> · Blower 1 + ERM 1 + needles</span></div>
+        <span id="runBadge" class="badge"><span class="dot"></span><span id="runBadgeText">Idle</span></span>
+      </div>
+
+      <div class="phase" aria-live="polite">
+        <div id="phaseIco" class="phase-ico" aria-hidden="true"><svg class="i"><use id="phaseIcoUse" href="#i-pulse"/></svg></div>
+        <div style="min-width:0">
+          <h2 id="phaseTitle">Connect to start</h2>
+          <p id="phaseDetail">Connect the board over USB or Bluetooth.</p>
+          <p id="phaseSince" class="since num"></p>
+        </div>
+      </div>
+
+      <div id="stepperWrap" class="stepper-wrap">
+        <ol class="stepper" aria-label="Auto run cycle">
+          <li class="step" data-step="baseline" data-c="base">
+            <span class="node"><svg class="i"><use href="#i-pulse"/></svg></span>
+            <span class="label">Dry baseline</span><span class="sub">first run only</span>
+          </li>
+          <li class="step" data-step="detect" data-c="liquid">
+            <span class="node"><svg class="i"><use href="#i-drop"/></svg></span>
+            <span class="label">Detect liquid</span><span class="sub" id="detectSub">Blower 1 on</span>
+          </li>
+          <li class="step" data-step="vibrate" data-c="vibe">
+            <span class="node"><svg class="i"><use href="#i-vibe"/></svg>
+              <svg class="ring" viewBox="0 0 68 68" aria-hidden="true"><circle id="ringArc" cx="34" cy="34" r="32" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100"/></svg>
+            </span>
+            <span class="label">Vibrate</span><span class="sub" id="vibeSub">ERM 1 · 5 s</span>
+          </li>
+          <li class="step" data-step="dry" data-c="dry">
+            <span class="node"><svg class="i"><use href="#i-wind"/></svg></span>
+            <span class="label">Blow dry</span><span class="sub">Blower 1 on</span>
+          </li>
+        </ol>
+        <div class="loop" aria-hidden="true"><span><svg class="i"><use href="#i-repeat"/></svg>repeats until Stop</span></div>
+      </div>
+
+      <div class="hero-row">
+        <div class="actions">
+          <button id="autoBtn" class="cta" data-need="link"><svg class="i"><use id="autoIco" href="#i-play"/></svg><span id="autoLbl">Start auto run</span></button>
+          <div class="row2">
+            <button id="runBtn" class="linkbtn" data-need="link" title="Baseline, then Blower 1 on until liquid is detected, then stop">
+              <svg class="i"><use href="#i-drop"/></svg>Single fill (no repeat)</button>
+            <button id="resetRunsBtn" class="linkbtn" data-need="link"><svg class="i"><use href="#i-repeat"/></svg>Reset count</button>
+          </div>
+        </div>
+        <div class="metrics">
+          <div class="metric"><div class="k">Run</div><div class="v" id="cycleView">—</div></div>
+          <div class="metric"><div class="k">Elapsed</div><div class="v" id="elapsedView">—</div></div>
+          <div class="metric"><div class="k" title="Liquid detections this auto run">Detected</div><div class="v" id="runsView">0</div></div>
+        </div>
+      </div>
+
+      <div class="devstrip">
+        <div id="chipB1" class="chip blow">
+          <span class="ico"><svg class="i spin"><use href="#i-fan"/></svg></span>
+          <div class="txt"><div class="name">Blower 1</div><div class="val num" id="chipB1Val">—</div></div>
+          <span class="tag" id="chipB1Tag">OFF</span>
+        </div>
+        <div id="chipE1" class="chip vib">
+          <span class="ico"><svg class="i shake"><use href="#i-vibe"/></svg></span>
+          <div class="txt"><div class="name">ERM 1</div><div class="val" id="chipE1Val">vibration motor</div></div>
+          <span class="tag" id="chipE1Tag">OFF</span>
+        </div>
+        <div class="meter">
+          <div class="meter-top"><span class="name">Needle signal</span><span id="meterState" class="state">—</span></div>
+          <div class="bar" role="meter" aria-label="Needle signal relative to the liquid threshold" aria-valuemin="0" aria-valuemax="150" aria-valuenow="0" id="meterBar">
+            <div class="fill" id="meterFill"></div>
+            <div class="tick" style="left:33.33%" title="dry level"></div>
+            <div class="tick wet" style="left:66.67%" title="liquid threshold"></div>
+          </div>
+          <div class="bar-scale"><span style="left:33.33%">dry</span><span style="left:66.67%">liquid</span></div>
+        </div>
       </div>
     </div>
 
-    <div class="stats">
-      <div class="stat"><div class="k">Threshold</div><div class="v" id="thrView">—</div></div>
-      <div class="stat"><div class="k">Baseline</div><div class="v" id="baseView">—</div></div>
-      <div class="stat"><div class="k">Rise / needed</div><div class="v" id="riseView">—</div></div>
-      <div class="stat"><div class="k">Wet hits</div><div class="v" id="hitsView">—</div></div>
+    <div class="hero-foot">
+      <div class="lbl">Blower 1 strength during auto<small>Lower frequency is gentler</small></div>
+      <div class="seg" role="group" aria-label="Auto strength">
+        <button type="button" data-autohz="24800" data-need="link">Low<small>24,800</small></button>
+        <button type="button" data-autohz="25200" data-need="link">Medium<small>25,200</small></button>
+        <button type="button" data-autohz="25500" data-need="link">High<small>25,500</small></button>
+      </div>
+      <form id="autoHzForm" class="hz-form">
+        <label for="autoHzInput" class="sr">Custom auto frequency in hertz</label>
+        <input id="autoHzInput" type="number" min="24000" max="27000" step="10" value="24800" data-need="link">
+        <span class="muted">Hz</span>
+        <button type="submit" class="btn" data-need="link">Set</button>
+      </form>
     </div>
+  </section>
 
-    <div class="chartwrap"><canvas id="chart"></canvas></div>
-    <div class="legend">
-      <span><i style="border-color:var(--accent)"></i>Voltage</span>
-      <span><i style="border-color:var(--wet); border-top-style:dashed"></i>Wet threshold</span>
-      <span><i style="border-color:var(--muted); border-top-style:dotted"></i>Baseline</span>
-      <span><i style="border-color:var(--on); border-top-width:8px; opacity:.3"></i>Blower on</span>
-    </div>
+  <div class="grid2">
+    <section class="card" aria-labelledby="chartTitle">
+      <div class="card-head">
+        <h3 class="card-title" id="chartTitle"><svg class="i"><use href="#i-chart"/></svg>Needle voltage</h3>
+        <div class="vread"><span class="big num"><span id="voltView">—</span><small>V</small></span><span id="wetBadge" class="pill">—</span></div>
+      </div>
+      <div class="chartwrap">
+        <canvas id="chart" aria-label="Needle voltage over the last 30 seconds" role="img"></canvas>
+        <div id="chartEmpty" class="chart-empty"><span>Live readings appear here once connected</span></div>
+      </div>
+      <div class="legend">
+        <span><i style="border-color:var(--accent)"></i>Voltage</span>
+        <span><i style="border-color:var(--liquid); border-top-style:dashed"></i>Liquid threshold</span>
+        <span><i style="border-color:var(--faint); border-top-style:dotted"></i>Dry baseline</span>
+        <span><i class="box" style="background:var(--shade-blow); outline:1px solid var(--accent-soft)"></i>Blower 1 on</span>
+        <span><i class="box" style="background:var(--shade-vibe); outline:1px solid var(--vibe-soft)"></i>ERM 1 on</span>
+      </div>
+    </section>
 
-    <div class="stats">
-      <div class="stat"><div class="k">Runs done</div><div class="v" id="runsView">0</div></div>
-      <div class="stat"><div class="k">Current run</div><div class="v" id="cycleView">—</div></div>
-      <div class="stat"><div class="k">Next run in</div><div class="v" id="nextView">—</div></div>
-    </div>
+    <section class="card" aria-labelledby="tlTitle">
+      <div class="card-head">
+        <h3 class="card-title" id="tlTitle"><svg class="i"><use href="#i-list"/></svg>Activity</h3>
+        <button id="clearTl" class="linkbtn" type="button">Clear</button>
+      </div>
+      <ol id="timeline" class="timeline" aria-live="polite"></ol>
+      <div id="tlEmpty" class="tl-empty">Events from the board show up here: liquid detected, vibrating, dry, and so on.</div>
+    </section>
+  </div>
 
-    <div class="sub">Run once: dry baseline with blower OFF, then ON until WET.
-      Auto: run 1 fills until WET, then repeats — wait <span id="waitS">7</span> s, blow until the
-      needles go DRY and then WET again, stop.</div>
-    <div class="row">
-      <button id="runBtn" class="fill" disabled>Run once</button>
-      <button id="autoBtn" class="fill" disabled>Auto</button>
-      <button id="stopBtn" disabled>Stop</button>
-      <button id="resetRunsBtn" disabled>Reset count</button>
+  <div class="section-head">
+    <div>
+      <h2>Manual controls</h2>
+      <p class="muted small">Drive each blower and ERM by hand.</p>
     </div>
-    <form id="autoHzForm" class="row">
-      <span class="sub">Auto frequency (lower = gentler):</span>
-      <input id="autoHzInput" type="number" min="24000" max="27000" step="10" value="24800" disabled>
-      <span class="sub">Hz</span>
-      <button type="submit" disabled>Set</button>
-      <span class="sub" id="autoHzView"></span>
-    </form>
-    <div id="lastEvt"></div>
+  </div>
+  <div id="lockNote" class="lock" hidden>
+    <svg class="i"><use href="#i-lock"/></svg>
+    <span>The auto run is driving <b>Blower 1</b> and <b>ERM 1</b>. Press <b>Stop</b> to control them by hand. Blower 2 and ERM 2 still work.</span>
   </div>
 
   <div class="pair">
     <!-- Blower 1 + ERM 1 -->
-    <div class="card unit">
-      <div class="unit-head">
+    <section id="unit1" class="card unit" aria-label="Blower 1 and ERM 1">
+      <div class="unit-head" id="b1Head">
+        <span class="ico"><svg class="i spin"><use href="#i-fan"/></svg></span>
+        <div class="tt"><div class="unit-title">Blower 1</div><div class="unit-sub">D0 · used by the auto run</div></div>
+        <span id="b1State" class="tag">OFF</span>
+      </div>
+      <div class="unit-body">
+        <button id="toggleBtn" class="btn bigtoggle" data-need="manual1">Turn on</button>
         <div>
-          <div class="unit-title">Blower 1</div>
-          <div class="sub">D0 · used by Run once / Auto</div>
+          <div class="k">Power</div>
+          <div class="seg full" role="group" aria-label="Blower 1 power">
+            <button type="button" data-preset="24800" data-need="manual1">Low</button>
+            <button type="button" data-preset="25200" data-need="manual1">Medium</button>
+            <button type="button" data-preset="25500" data-need="manual1">High</button>
+          </div>
         </div>
-        <span id="b1State" class="state">OFF</span>
-      </div>
-      <button id="toggleBtn" class="big" disabled>Turn ON</button>
-      <div>
-        <div class="k">Power</div>
-        <div class="seg">
-          <button type="button" data-preset="24800" disabled>Low</button>
-          <button type="button" data-preset="25200" disabled>Medium</button>
-          <button type="button" data-preset="25500" disabled>High</button>
+        <div class="freqline"><span>Frequency</span><span><b id="freqView">—</b> Hz</span></div>
+        <details class="tune">
+          <summary>Fine tune</summary>
+          <div class="tune-body">
+            <label for="slider" class="sr">Blower 1 frequency</label>
+            <input id="slider" type="range" min="24000" max="27000" step="10" data-need="manual1">
+            <div class="scale"><span>24 kHz</span><span>25.5 kHz</span><span>27 kHz</span></div>
+            <form id="freqForm" class="steps">
+              <button type="button" class="btn" data-step="-100" data-need="manual1">−100</button>
+              <button type="button" class="btn" data-step="-10" data-need="manual1">−10</button>
+              <button type="button" class="btn" data-step="10" data-need="manual1">+10</button>
+              <button type="button" class="btn" data-step="100" data-need="manual1">+100</button>
+              <label for="freqInput" class="sr">Blower 1 frequency in hertz</label>
+              <input id="freqInput" type="number" min="24000" max="27000" step="1" placeholder="Hz" data-need="manual1">
+              <button type="submit" class="btn" data-need="manual1">Set</button>
+            </form>
+          </div>
+        </details>
+        <div class="erm-row" id="erm1Row">
+          <div class="who"><span class="ico"><svg class="i shake"><use href="#i-vibe"/></svg></span>
+            <div><div style="font-weight:700">ERM 1</div><div class="unit-sub">X
+          <button id="ermBtn" class="switch" role="switch" aria-checked="false" aria-label="ERM 1" data-need="manual1"><span class="trk"></span><span class="st">Off</span></button>
         </div>
       </div>
-      <div class="freqline"><span id="freqView">—</span> Hz</div>
-      <details>
-        <summary>Fine tune</summary>
-        <input id="slider" type="range" min="24000" max="27000" step="10" disabled>
-        <div class="scale"><span>24 kHz</span><span>25.5 kHz</span><span>27 kHz</span></div>
-        <form id="freqForm" class="row" style="margin-top:8px">
-          <button type="button" data-step="-100" disabled>−100</button>
-          <button type="button" data-step="-10" disabled>−10</button>
-          <button type="button" data-step="10" disabled>+10</button>
-          <button type="button" data-step="100" disabled>+100</button>
-          <input id="freqInput" type="number" min="24000" max="27000" step="1" placeholder="Hz" disabled>
-          <button type="submit" disabled>Set</button>
-        </form>
-      </details>
-      <div class="erm-row">
-        <div><div class="erm-title">ERM 1</div><div class="sub">vibration · D3</div></div>
-        <button id="ermBtn" class="toggle" disabled>OFF</button>
-      </div>
-    </div>
+    </section>
 
     <!-- Blower 2 + ERM 2 -->
-    <div class="card unit">
-      <div class="unit-head">
+    <section id="unit2" class="card unit" aria-label="Blower 2 and ERM 2">
+      <div class="unit-head" id="b2Head">
+        <span class="ico"><svg class="i spin"><use href="#i-fan"/></svg></span>
+        <div class="tt"><div class="unit-title">Blower 2</div><div class="unit-sub">D4 · manual only</div></div>
+        <span id="b2State" class="tag">OFF</span>
+      </div>
+      <div class="unit-body">
+        <button id="b2Btn" class="btn bigtoggle" data-need="link">Turn on</button>
         <div>
-          <div class="unit-title">Blower 2</div>
-          <div class="sub">D4 · manual only</div>
+          <div class="k">Power</div>
+          <div class="seg full" role="group" aria-label="Blower 2 power">
+            <button type="button" data-b2preset="24800" data-need="link">Low</button>
+            <button type="button" data-b2preset="25200" data-need="link">Medium</button>
+            <button type="button" data-b2preset="25500" data-need="link">High</button>
+          </div>
         </div>
-        <span id="b2State" class="state">OFF</span>
-      </div>
-      <button id="b2Btn" class="big" disabled>Turn ON</button>
-      <div>
-        <div class="k">Power</div>
-        <div class="seg">
-          <button type="button" data-b2preset="24800" disabled>Low</button>
-          <button type="button" data-b2preset="25200" disabled>Medium</button>
-          <button type="button" data-b2preset="25500" disabled>High</button>
+        <div class="freqline"><span>Frequency</span><span><b id="b2FreqView">—</b> Hz</span></div>
+        <details class="tune">
+          <summary>Fine tune</summary>
+          <div class="tune-body">
+            <label for="b2Slider" class="sr">Blower 2 frequency</label>
+            <input id="b2Slider" type="range" min="24000" max="27000" step="10" value="25500" data-need="link">
+            <div class="scale"><span>24 kHz</span><span>25.5 kHz</span><span>27 kHz</span></div>
+            <form id="b2Form" class="steps">
+              <button type="button" class="btn" data-b2step="-100" data-need="link">−100</button>
+              <button type="button" class="btn" data-b2step="-10" data-need="link">−10</button>
+              <button type="button" class="btn" data-b2step="10" data-need="link">+10</button>
+              <button type="button" class="btn" data-b2step="100" data-need="link">+100</button>
+              <label for="b2Input" class="sr">Blower 2 frequency in hertz</label>
+              <input id="b2Input" type="number" min="24000" max="27000" step="1" placeholder="Hz" data-need="link">
+              <button type="submit" class="btn" data-need="link">Set</button>
+            </form>
+          </div>
+        </details>
+        <div class="erm-row" id="erm2Row">
+          <div class="who"><span class="ico"><svg class="i shake"><use href="#i-vibe"/></svg></span>
+            <div><div style="font-weight:700">ERM 2</div><div class="unit-sub">X
+          <button id="erm2Btn" class="switch" role="switch" aria-checked="false" aria-label="ERM 2" data-need="link"><span class="trk"></span><span class="st">Off</span></button>
         </div>
       </div>
-      <div class="freqline"><span id="b2FreqView">—</span> Hz</div>
-      <details>
-        <summary>Fine tune</summary>
-        <input id="b2Slider" type="range" min="24000" max="27000" step="10" value="25500" disabled>
-        <div class="scale"><span>24 kHz</span><span>25.5 kHz</span><span>27 kHz</span></div>
-        <form id="b2Form" class="row" style="margin-top:8px">
-          <button type="button" data-b2step="-100" disabled>−100</button>
-          <button type="button" data-b2step="-10" disabled>−10</button>
-          <button type="button" data-b2step="10" disabled>+10</button>
-          <button type="button" data-b2step="100" disabled>+100</button>
-          <input id="b2Input" type="number" min="24000" max="27000" step="1" placeholder="Hz" disabled>
-          <button type="submit" disabled>Set</button>
-        </form>
-      </details>
-      <div class="erm-row">
-        <div><div class="erm-title">ERM 2</div><div class="sub">vibration · D5</div></div>
-        <button id="erm2Btn" class="toggle" disabled>OFF</button>
-      </div>
-    </div>
+    </section>
   </div>
 
-  <div class="card" style="display:grid; gap:8px">
-    <form id="rawForm" class="row">
-      <input id="rawInput" type="text" placeholder="raw command, e.g. ?" style="flex:1" disabled>
-      <button type="submit" disabled>Send</button>
-    </form>
-    <pre id="log"></pre>
-  </div>
+  <details class="card dev">
+    <summary><svg class="i"><use href="#i-term"/></svg>Developer<span class="muted small" style="font-weight:500">thresholds, raw commands, serial log</span><svg class="i chev"><use href="#i-chev"/></svg></summary>
+    <div class="dev-body">
+      <div class="stats">
+        <div class="stat"><div class="k">Mode</div><div class="v" id="modeView">idle</div></div>
+        <div class="stat"><div class="k">Liquid threshold</div><div class="v" id="thrView">—</div></div>
+        <div class="stat"><div class="k">Baseline</div><div class="v" id="baseView">—</div></div>
+        <div class="stat"><div class="k">Rise / needed</div><div class="v" id="riseView">—</div></div>
+        <div class="stat"><div class="k">Wet hits</div><div class="v" id="hitsView">—</div></div>
+        <div class="stat"><div class="k">Board config</div><div class="v" id="cfgView">—</div></div>
+      </div>
+      <form id="rawForm" class="raw">
+        <label for="rawInput" class="sr">Raw command</label>
+        <input id="rawInput" type="text" placeholder="raw command, e.g. ?" autocomplete="off" data-need="link">
+        <button type="submit" class="btn" data-need="link">Send</button>
+      </form>
+      <pre id="log" aria-label="Serial log"></pre>
+    </div>
+  </details>
+
+  <footer>Blower 1 D0 · ERM 1 D5 · Blower 2 D4 · ERM 2 D3 · needles D1/D2 · XIAO nRF54L15 · USB 115200 or Bluetooth “nrfELISA”</footer>
 </main>
 
 <script>
-const MIN_HZ = 24000, MAX_HZ = 27000;  // must match main.py
+const MIN_HZ = 24000, MAX_HZ = 27000;  // must match the firmware
 const WINDOW_MS = 30000;               // chart time span
 const $ = id => document.getElementById(id);
 const log = (msg, cls) => {
@@ -253,95 +767,211 @@ const log = (msg, cls) => {
   line.textContent = msg;
   if (cls) line.className = cls;
   $('log').prepend(line);
-  while ($('log').childElementCount > 200) $('log').lastChild.remove();
+  while ($('log').childElementCount > 300) $('log').lastChild.remove();
 };
 
 const clampHz = hz => Math.min(MAX_HZ, Math.max(MIN_HZ, Math.round(hz)));
 const fmtV = v => v === null || Number.isNaN(v) ? '—' : (v >= 0 ? '+' : '') + v.toFixed(4);
+const fmtHz = f => f === null || f === undefined ? '—' : Number(f).toLocaleString('en-US');
+const fmtDur = ms => {
+  const s = Math.max(0, Math.floor(ms / 1000)), h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, ss = s % 60;
+  return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(ss).padStart(2, '0');
+};
+const clock = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+const qs = new URLSearchParams(location.search);
+if (['dark', 'light'].includes(qs.get('theme'))) document.documentElement.dataset.theme = qs.get('theme');
 
-// cfg comes from the board's "CFG" line; these defaults match main.py.
-let cfg = { wetRise: 0.075, dryMax: 0.03, hits: 2, autoWait: 7 };
+// cfg comes from the board's "CFG" line; these defaults match config.h.
+let cfg = { wetRise: 0.075, dryMax: 0.03, hits: 2, autoWait: 5, autoHz: null, maxRun: 360 };
 let state = { f: 25500, on: false, mode: 'idle', v: null, base: null, hits: 0, auto: false, cycle: 0 };
-let runsDone = 0;        // WET events seen (page counter)
-let nextRunAt = null;    // performance.now() time the next auto run starts
+let runsDone = 0;        // WET events seen this auto run (page counter)
 let pendingHz = null, sending = false;
-let erm = { on: false };   // D3 optocoupler, from the board's "OPTO on=<0|1>" line
-let erm2 = { on: false };  // D5 optocoupler, "OPTO2 on=<0|1>"
+let erm = { on: false };   // ERM 1 (D5), from the board's "OPTO on=<0|1>" line
+let erm2 = { on: false };  // ERM 2 (D3), "OPTO2 on=<0|1>"
 let b2 = { f: null, on: false };     // blower 2 on D4, "B2 f=<Hz> on=<0|1>"
 let pendingB2 = null, sendingB2 = false;
-const points = [];   // { t, v, thr, base, on }
+const points = [];   // { t, v, thr, base, on, erm }
 const markers = [];  // { t, label, color }
 
-const filling = () => ['baseline', 'fill', 'wait'].includes(state.mode);
+// Auto-run tracking derived from OK/EVT lines.
+let needDry = null;        // runs 2+: true after "run N ... waiting for DRY" until "DRY at"; null = unknown
+let vibrateUntil = null;   // performance.now() when ERM 1 stops
+let vibrateTotal = 5;      // seconds, from "ERM 1 ON for <n>s" or CFG auto_wait
+let autoStartedAt = null, autoEndedAt = null;
+let phaseKey = '', phaseSince = performance.now();
+let stopNote = null;       // { title, detail, bad } why the last run ended
+
+const isVibrate = () => state.mode === 'vibrate' || state.mode === 'wait';
+const running = () => ['baseline', 'fill', 'vibrate', 'wait'].includes(state.mode);
 // Dry reads ~0 V, so outside a fill the threshold is measured from 0 V.
 const reference = () => state.base ?? 0;
 const threshold = () => reference() + cfg.wetRise;
+const vibrateLeft = () => vibrateUntil === null ? vibrateTotal
+  : Math.max(0, Math.min(vibrateTotal, Math.ceil((vibrateUntil - performance.now()) / 1000)));
+
+// ---------- plain-language phase ----------
+function phase() {
+  if (!link) return { key: 'offline', step: null, tone: null, icon: 'i-plug',
+    title: 'Connect to start', detail: 'Connect the board over USB or Bluetooth (buttons at the top).' };
+  const m = state.mode;
+  if (m === 'baseline') return { key: 'baseline', step: 'baseline', tone: 'base', icon: 'i-pulse',
+    title: 'Measuring the dry baseline…', detail: 'Blower 1 is off while the needles take about 50 dry readings.' };
+  if (isVibrate()) { const left = vibrateLeft(); return { key: 'vibrate', step: 'vibrate', tone: 'vibe', icon: 'i-vibe',
+    title: `Liquid detected! Vibrating ${left} s…`, detail: 'Blower 1 is off and ERM 1 is shaking. Then Blower 1 blows the area dry.' }; }
+  if (m === 'fill') {
+    if (!state.auto) return { key: 'single', step: 'detect', tone: 'liquid', icon: 'i-drop',
+      title: 'Single fill: blowing until liquid…', detail: 'Blower 1 stops by itself as soon as liquid reaches the needles.' };
+    let dry = needDry;
+    if (dry === null) dry = state.cycle >= 2 && state.v !== null && state.v - reference() >= cfg.wetRise / 2;
+    if (dry) return { key: 'dry', step: 'dry', tone: 'dry', icon: 'i-wind',
+      title: 'Drying the area…', detail: 'Blower 1 is clearing the needles. Next it waits for fresh liquid.' };
+    return { key: 'detect', step: 'detect', tone: 'liquid', icon: 'i-drop',
+      title: 'Blowing, waiting for liquid…', detail: `Liquid counts when the needle voltage rises ${cfg.wetRise.toFixed(3)} V above the dry baseline.` };
+  }
+  if (m === 'manual') return { key: 'manual', step: null, tone: 'accent', icon: 'i-fan',
+    title: 'Blower 1 is on (manual)', detail: 'Start the auto run to let the needles drive Blower 1 and ERM 1.' };
+  if (stopNote) return { key: 'stopped', step: null, tone: stopNote.bad ? 'danger' : 'ok', icon: stopNote.bad ? 'i-alert' : 'i-check',
+    title: stopNote.title, detail: stopNote.detail };
+  return { key: 'ready', step: null, tone: null, icon: 'i-play',
+    title: 'Ready to start', detail: 'Measures a dry baseline, then blows until liquid → vibrates → blows dry → repeats.' };
+}
+const TONES = { base: ['--base', '--base-soft'], liquid: ['--liquid', '--liquid-soft'], vibe: ['--vibe', '--vibe-soft'],
+  dry: ['--dry', '--dry-soft'], accent: ['--accent', '--accent-soft'], ok: ['--ok', '--ok-soft'], danger: ['--danger', '--danger-soft'] };
+
+function renderHero() {
+  const p = phase(), now = performance.now();
+  if (p.key !== phaseKey) { phaseKey = p.key; phaseSince = now; }
+  const hero = $('hero');
+  const tone = TONES[p.tone];
+  hero.style.setProperty('--tone', tone ? `var(${tone[0]})` : 'var(--line)');
+  hero.style.setProperty('--tone-soft', tone ? `var(${tone[1]})` : 'var(--surface-2)');
+  $('phaseTitle').textContent = p.title;
+  $('phaseDetail').textContent = p.detail;
+  $('phaseIcoUse').setAttribute('href', '#' + p.icon);
+  $('phaseSince').textContent = p.step ? `In this step for ${fmtDur(now - phaseSince)}` : '';
+
+  // stepper
+  document.querySelectorAll('.step').forEach(li => {
+    const s = li.dataset.step;
+    li.classList.toggle('active', s === p.step);
+    li.classList.toggle('done', s === 'baseline' && state.auto && p.step && p.step !== 'baseline');
+    li.setAttribute('aria-current', s === p.step ? 'step' : 'false');
+  });
+  $('stepperWrap').classList.toggle('looping', state.auto && state.cycle >= 2);
+  $('vibeSub').textContent = p.step === 'vibrate' ? `${vibrateLeft()} s left` : `ERM 1 · ${vibrateTotal} s`;
+  $('detectSub').textContent = p.step === 'detect' ? 'Blower 1 on · watching' : 'Blower 1 on';
+  const frac = vibrateUntil === null ? 0 : Math.max(0, Math.min(1, (vibrateUntil - now) / (vibrateTotal * 1000)));
+  $('ringArc').setAttribute('stroke-dashoffset', String(100 - frac * 100));
+
+  // badge
+  const badge = $('runBadge');
+  badge.className = 'badge' + (state.auto || running() ? ' run' : p.key === 'stopped' && stopNote?.bad ? ' err' : '');
+  $('runBadgeText').textContent = !link ? 'Offline'
+    : state.auto ? `Running · run ${state.cycle || 1}`
+    : running() ? 'Single fill'
+    : state.mode === 'manual' ? 'Manual' : 'Idle';
+
+  // CTA
+  const busy = state.auto || running();
+  $('autoBtn').classList.toggle('stop', busy);
+  $('autoLbl').textContent = busy ? (state.auto ? 'Stop auto run' : 'Stop') : 'Start auto run';
+  $('autoIco').setAttribute('href', busy ? '#i-stop' : '#i-play');
+
+  // metrics
+  $('cycleView').textContent = state.auto ? '#' + (state.cycle || 1) : (running() ? '1×' : '—');
+  $('runsView').textContent = runsDone;
+  const t0 = autoStartedAt;
+  $('elapsedView').textContent = t0 === null ? '—' : fmtDur((state.auto ? now : (autoEndedAt ?? now)) - t0);
+
+  // live chips
+  const b1 = $('chipB1');
+  b1.classList.toggle('on', state.on);
+  $('chipB1Tag').textContent = state.on ? 'ON' : 'OFF';
+  $('chipB1Val').textContent = link ? `${state.on ? 'Blowing' : 'Off'} · ${fmtHz(state.f)} Hz` : '—';
+  const e1 = $('chipE1');
+  e1.classList.toggle('on', erm.on);
+  $('chipE1Tag').textContent = erm.on ? 'ON' : 'OFF';
+  $('chipE1Val').textContent = erm.on ? (isVibrate() ? `Vibrating · ${vibrateLeft()} s left` : 'Vibrating') : 'Vibration motor';
+
+  // signal meter
+  const fill = $('meterFill'), ms = $('meterState');
+  fill.classList.remove('wet', 'rising'); ms.classList.remove('wet', 'rising');
+  if (state.v === null) { fill.style.width = '0'; ms.textContent = '—'; }
+  else {
+    const rise = state.v - reference(), pct = Math.max(0, Math.min(1, rise / (cfg.wetRise * 1.5)));
+    fill.style.width = (pct * 100).toFixed(1) + '%';
+    $('meterBar').setAttribute('aria-valuenow', String(Math.round(rise / cfg.wetRise * 100)));
+    const s = signalState();
+    ms.textContent = s.label;
+    if (s.cls) { fill.classList.add(s.cls); ms.classList.add(s.cls); }
+  }
+}
+
+function signalState() {
+  if (state.v === null) return { label: '—', cls: '' };
+  if (state.mode === 'baseline') return { label: 'Baseline', cls: '' };
+  const rise = state.v - reference();
+  if (rise >= cfg.wetRise) return { label: 'Liquid', cls: 'wet' };
+  if (rise >= cfg.wetRise / 2) return { label: 'Rising', cls: 'rising' };
+  return { label: 'Dry', cls: '' };
+}
 
 function render() {
-  $('freqView').textContent = state.f.toLocaleString();
+  $('freqView').textContent = fmtHz(state.f);
   if (document.activeElement !== $('slider')) $('slider').value = state.f;
-  renderBlower('toggleBtn', 'b1State', state.on, state.f, '[data-preset]', 'preset');
+  renderBlower('toggleBtn', 'b1State', 'b1Head', state.on, state.f, '[data-preset]', 'preset');
 
   $('voltView').textContent = fmtV(state.v);
-  $('modeView').textContent = state.mode;
-  $('modeView').classList.toggle('active', filling());
+  $('modeView').textContent = state.mode + (state.auto ? ` · auto · cycle ${state.cycle}` : '');
   $('thrView').textContent = fmtV(threshold()) + ' V';
   $('baseView').textContent = state.base === null ? (state.mode === 'baseline' ? 'measuring…' : '0 (none)') : fmtV(state.base) + ' V';
-  if (state.v === null) {
-    $('riseView').textContent = '—';
-  } else {
-    const rise = state.v - reference();
-    $('riseView').textContent = `${fmtV(rise)} / ${cfg.wetRise.toFixed(3)}`;
-  }
+  $('riseView').textContent = state.v === null ? '—' : `${fmtV(state.v - reference())} / ${cfg.wetRise.toFixed(3)}`;
   $('hitsView').textContent = state.mode === 'fill' ? `${state.hits} / ${cfg.hits}` : '—';
+  $('cfgView').textContent = `wet ${cfg.wetRise} · dry≤${cfg.dryMax} · wait ${cfg.autoWait}s · max ${cfg.maxRun}s`;
 
-  for (const [id, o] of [['ermBtn', erm], ['erm2Btn', erm2]]) {
-    $(id).textContent = o.on ? 'ON' : 'OFF';
-    $(id).classList.toggle('on', o.on);
+  for (const [id, row, o] of [['ermBtn', 'erm1Row', erm], ['erm2Btn', 'erm2Row', erm2]]) {
+    $(id).setAttribute('aria-checked', String(o.on));
+    $(id).querySelector('.st').textContent = o.on ? 'On' : 'Off';
+    $(row).classList.toggle('on', o.on);
   }
-  renderBlower('b2Btn', 'b2State', b2.on, b2.f, '[data-b2preset]', 'b2preset');
-  $('b2FreqView').textContent = b2.f === null ? '—' : b2.f.toLocaleString();
+  renderBlower('b2Btn', 'b2State', 'b2Head', b2.on, b2.f, '[data-b2preset]', 'b2preset');
+  $('b2FreqView').textContent = fmtHz(b2.f);
   if (document.activeElement !== $('b2Slider') && b2.f !== null) $('b2Slider').value = b2.f;
 
-  const badge = $('wetBadge');
-  badge.classList.remove('wet', 'near');
-  if (state.v === null) badge.textContent = '—';
-  else if (state.mode === 'baseline') badge.textContent = 'BASELINE';
-  else if (state.v >= threshold()) { badge.textContent = 'WET'; badge.classList.add('wet'); }
-  else if (state.v - reference() >= cfg.wetRise / 2) { badge.textContent = 'RISING'; badge.classList.add('near'); }
-  else badge.textContent = 'DRY';
+  const badge = $('wetBadge'), s = signalState();
+  badge.className = 'pill' + (s.cls ? ' ' + s.cls : '');
+  badge.textContent = s.label;
 
-  const single = filling() && !state.auto;
-  $('runBtn').textContent = single ? 'Running…' : 'Run once';
-  $('runBtn').classList.toggle('active', single);
-  $('autoBtn').textContent = state.auto ? 'Auto ON' : 'Auto';
-  $('autoBtn').classList.toggle('active', state.auto);
-  renderCounter();
+  // auto strength presets
+  const ahz = cfg.autoHz;
+  document.querySelectorAll('[data-autohz]').forEach(b =>
+    b.classList.toggle('active', ahz !== null && Math.abs(ahz - +b.dataset.autohz) <= 20));
+
+  // enable / lock
+  const locked = state.auto;
+  document.querySelectorAll('[data-need]').forEach(el => {
+    el.disabled = !link || (el.dataset.need === 'manual1' && locked);
+  });
+  $('runBtn').disabled = !link || state.auto || running();
+  $('unit1').classList.toggle('locked', !!link && locked);
+  $('lockNote').hidden = !(link && locked);
+  $('emptyState').hidden = !!link;
+  $('chartEmpty').hidden = points.length > 0;
+
+  renderHero();
   scheduleDraw();
 }
 
-// Blower card: big ON/OFF button, status badge, and which power preset matches.
-function renderBlower(btnId, stateId, on, f, presetSel, presetKey) {
+// Blower card: big ON/OFF button, status tag, and which power preset matches.
+function renderBlower(btnId, stateId, headId, on, f, presetSel, presetKey) {
   const b = $(btnId);
-  b.textContent = on ? 'Turn OFF' : 'Turn ON';
+  b.textContent = on ? 'Turn off' : 'Turn on';
   b.classList.toggle('on', on);
   $(stateId).textContent = on ? 'RUNNING' : 'OFF';
   $(stateId).classList.toggle('on', on);
+  $(headId).classList.toggle('on', on);
   document.querySelectorAll(presetSel).forEach(p =>
     p.classList.toggle('active', f !== null && Math.abs(f - +p.dataset[presetKey]) <= 20));
-}
-
-function renderCounter() {
-  $('runsView').textContent = runsDone;
-  $('cycleView').textContent = filling() && state.cycle > 0 ? '#' + state.cycle
-    : filling() ? '#1' : '—';
-  if (state.mode === 'wait' && nextRunAt !== null) {
-    const s = Math.max(0, Math.ceil((nextRunAt - performance.now()) / 1000));
-    $('nextView').textContent = s + ' s';
-  } else {
-    $('nextView').textContent = '—';
-  }
-  $('waitS').textContent = cfg.autoWait;
 }
 
 // ---------- chart ----------
@@ -356,13 +986,14 @@ function draw() {
   const c = $('chart'), ctx = c.getContext('2d');
   const dpr = window.devicePixelRatio || 1;
   const W = c.clientWidth, H = c.clientHeight;
-  if (c.width !== W * dpr || c.height !== H * dpr) { c.width = W * dpr; c.height = H * dpr; }
+  if (!W || !H) return;
+  if (c.width !== Math.round(W * dpr) || c.height !== Math.round(H * dpr)) { c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, W, H);
   const css = getComputedStyle(document.documentElement);
   const col = n => css.getPropertyValue(n).trim();
 
-  const padL = 52, padR = 8, padT = 8, padB = 20;
+  const padL = 46, padR = 6, padT = 22, padB = 20;
   const pw = W - padL - padR, ph = H - padT - padB;
   const now = performance.now(), t0 = now - WINDOW_MS;
   while (points.length && points[0].t < t0 - 1000) points.shift();
@@ -373,29 +1004,39 @@ function draw() {
   const x = t => padL + (t - t0) / WINDOW_MS * pw;
   const y = v => padT + (1 - (v - vmin) / (vmax - vmin)) * ph;
 
-  // grid + y labels
-  ctx.font = '11px ui-monospace, Consolas, monospace';
-  ctx.fillStyle = col('--muted'); ctx.strokeStyle = col('--grid'); ctx.lineWidth = 1;
+  // grid + labels
+  ctx.font = '11px "JetBrains Mono", ui-monospace, Consolas, monospace';
+  ctx.fillStyle = col('--faint'); ctx.strokeStyle = col('--grid'); ctx.lineWidth = 1;
   const step = vmax - vmin > 0.5 ? 0.1 : 0.05;
   for (let g = Math.ceil(vmin / step) * step; g <= vmax; g += step) {
-    ctx.beginPath(); ctx.moveTo(padL, y(g)); ctx.lineTo(W - padR, y(g)); ctx.stroke();
-    ctx.fillText(g.toFixed(2), 4, y(g) + 4);
+    const gy = Math.round(y(g)) + .5;
+    ctx.beginPath(); ctx.moveTo(padL, gy); ctx.lineTo(W - padR, gy); ctx.stroke();
+    ctx.fillText(g.toFixed(2), 2, gy + 4);
   }
-  ctx.fillText('-30 s', padL, H - 5);
-  ctx.fillText('now', W - padR - 22, H - 5);
-
-  // blower-on shading
-  ctx.fillStyle = col('--runbg');
-  for (let i = 0; i < points.length; i++) {
-    if (!points[i].on) continue;
-    const xa = Math.max(padL, x(points[i].t));
-    const xb = i + 1 < points.length ? x(points[i + 1].t) : x(now);
-    ctx.fillRect(xa, padT, Math.max(0, xb - xa), ph);
+  for (let s = 0; s <= 30; s += 10) {
+    const label = s === 0 ? 'now' : `-${s}s`;
+    const lx = x(now - s * 1000);
+    ctx.fillText(label, Math.min(W - padR - ctx.measureText(label).width, Math.max(padL, lx - ctx.measureText(label).width / 2)), H - 5);
   }
 
-  // stepped line helper over a point field
+  // blower / ERM shading
+  const shade = (key, color, top, h) => {   // one rect per contiguous on-stretch (no alpha seams)
+    ctx.fillStyle = color;
+    for (let i = 0; i < points.length; i++) {
+      if (!points[i][key]) continue;
+      let j = i;
+      while (j + 1 < points.length && points[j + 1][key]) j++;
+      const xa = Math.max(padL, x(points[i].t));
+      const xb = j + 1 < points.length ? x(points[j + 1].t) : x(now);
+      ctx.fillRect(xa, top, Math.max(0, xb - xa), h);
+      i = j;
+    }
+  };
+  shade('on', col('--shade-blow'), padT, ph);
+  shade('erm', col('--shade-vibe'), padT, ph);
+
   const trace = (key, color, dash, width) => {
-    ctx.strokeStyle = color; ctx.lineWidth = width; ctx.setLineDash(dash);
+    ctx.strokeStyle = color; ctx.lineWidth = width; ctx.setLineDash(dash); ctx.lineJoin = 'round';
     ctx.beginPath();
     let started = false;
     for (const p of points) {
@@ -406,36 +1047,122 @@ function draw() {
     }
     ctx.stroke(); ctx.setLineDash([]);
   };
-  trace('base', col('--muted'), [2, 3], 1);
-  trace('thr', col('--wet'), [6, 4], 1.5);
-  trace('v', col('--accent'), [], 2);
+  trace('base', col('--faint'), [2, 3], 1);
+  trace('thr', col('--liquid'), [6, 4], 1.5);
+  trace('v', col('--accent'), [], 2.2);
 
-  // event markers
+  // event markers with pill labels
+  ctx.font = '600 11px Inter, system-ui, sans-serif';
+  let lastRight = -1e9;
   for (const m of markers) {
     if (m.t < t0) continue;
-    const mx = x(m.t);
-    ctx.strokeStyle = col(m.color); ctx.fillStyle = col(m.color); ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.moveTo(mx, padT); ctx.lineTo(mx, padT + ph); ctx.stroke();
-    ctx.font = 'bold 11px system-ui, sans-serif';
-    ctx.fillText(m.label, Math.min(mx + 4, W - padR - 40), padT + 12);
+    const mx = Math.round(x(m.t)) + .5, c2 = col(m.color);
+    ctx.strokeStyle = c2; ctx.lineWidth = 1.2; ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(mx, padT); ctx.lineTo(mx, padT + ph); ctx.stroke(); ctx.setLineDash([]);
+    const tw = ctx.measureText(m.label).width + 12;
+    const lx = Math.min(Math.max(padL, mx - tw / 2), W - padR - tw);
+    if (lx < lastRight + 4) continue;   // no room: keep the line, skip the label
+    lastRight = lx + tw;
+    ctx.fillStyle = c2;
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(lx, 2, tw, 17, 8.5) : ctx.rect(lx, 2, tw, 17); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.fillText(m.label, lx + 6, 14.5);
   }
 
-  // latest value dot
   const last = points[points.length - 1];
   if (last) {
-    ctx.fillStyle = last.v >= last.thr ? col('--wet') : col('--accent');
-    ctx.beginPath(); ctx.arc(x(last.t), y(last.v), 3.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = last.v >= last.thr ? col('--liquid') : col('--accent');
+    ctx.beginPath(); ctx.arc(x(last.t), y(last.v), 4, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = col('--surface'); ctx.lineWidth = 2; ctx.stroke();
   }
 }
-setInterval(() => { scheduleDraw(); renderCounter(); }, 250);   // scroll the chart, tick the countdown
+setInterval(() => { scheduleDraw(); renderHero(); }, 250);   // scroll the chart, tick countdowns and timers
 window.addEventListener('resize', scheduleDraw);
+
+// ---------- activity timeline ----------
+function addEvent(kind, icon, html) {
+  const li = document.createElement('li');
+  li.className = 'evt ' + kind;
+  li.innerHTML = `<span class="ei"><svg class="i"><use href="#${icon}"/></svg></span><div><div class="et"></div><div class="tm num"></div></div>`;
+  li.querySelector('.et').innerHTML = html;
+  li.querySelector('.tm').textContent = clock();
+  $('timeline').prepend(li);
+  while ($('timeline').childElementCount > 120) $('timeline').lastChild.remove();
+  $('tlEmpty').hidden = true;
+}
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const secs = s => (+s).toFixed(1).replace(/\.0$/, '') + ' s';
+const volts = s => (+s).toFixed(3) + ' V';
+
+// Turn one "EVT <text>" into a friendly timeline entry; also updates phase tracking.
+function onEvent(text) {
+  const now = performance.now();
+  let m;
+  if ((m = text.match(/^auto run 1: baseline (\d+)/))) {
+    needDry = false; stopNote = null; runsDone = 0;
+    addEvent('start', 'i-play', `<b>Auto run started.</b> Measuring the dry baseline (${m[1]} readings), Blower 1 off.`);
+    addMarker('Start', '--base');
+  } else if ((m = text.match(/^baseline: (\d+)/))) {
+    needDry = false; stopNote = null;
+    addEvent('start', 'i-drop', `<b>Single fill started.</b> Measuring the dry baseline (${m[1]} readings).`);
+    addMarker('Start', '--base');
+  } else if ((m = text.match(/^baseline ([+-][\d.]+) V/))) {
+    addEvent('blow', 'i-fan', `Dry baseline ${volts(m[1])}. <b>Blower 1 on</b>, waiting for liquid.`);
+    addMarker('Blow', '--accent');
+  } else if ((m = text.match(/^blower-on offset ([+-][\d.]+) V, baseline now ([+-][\d.]+)/))) {
+    addEvent('minor', 'i-pulse', `Baseline adjusted for the blower: ${volts(m[2])}.`);
+  } else if ((m = text.match(/^WET at ([\d.]+)s/))) {
+    runsDone++; needDry = false;
+    const vib = text.match(/ERM 1 ON for (\d+)s/), run = text.match(/run (\d+) done/);
+    addMarker('Liquid', '--liquid');
+    if (vib) {
+      vibrateTotal = +vib[1]; vibrateUntil = now + vibrateTotal * 1000;
+      addEvent('liquid', 'i-drop', `<b>Liquid detected</b> after ${secs(m[1])}${run ? ` (run ${run[1]})` : ''}. Blower 1 off, <b>ERM 1 vibrating ${vibrateTotal} s</b>.`);
+    } else {
+      stopNote = { title: 'Single fill done', detail: `Liquid detected after ${secs(m[1])}. Blower 1 is off.`, bad: false };
+      addEvent('liquid', 'i-drop', `<b>Liquid detected</b> after ${secs(m[1])}. Blower 1 off. Single fill done.`);
+    }
+  } else if ((m = text.match(/^run (\d+): blower ON/))) {
+    needDry = /DRY/.test(text); vibrateUntil = null;
+    addEvent('dry', 'i-wind', `<b>Run ${m[1]}:</b> ERM 1 off, Blower 1 on. Drying the area.`);
+    addMarker('Run ' + m[1], '--dry');
+  } else if ((m = text.match(/^DRY at ([\d.]+)s/))) {
+    needDry = false;
+    addEvent('ok', 'i-check', `<b>Area dry</b> after ${secs(m[1])}. Waiting for liquid.`);
+    addMarker('Dry', '--dry');
+  } else if (/^(auto|fill) cancelled/.test(text)) {
+    const auto = text.startsWith('auto');
+    stopNote = { title: auto ? 'Auto run stopped' : 'Single fill stopped', detail: 'Stopped by you. Press Start to run again.', bad: false };
+    needDry = null; vibrateUntil = null;
+    addEvent('minor', 'i-stop', `${auto ? 'Auto run' : 'Single fill'} stopped.`);
+    addMarker('Stop', '--muted');
+  } else if ((m = text.match(/^safety cutoff: (\d+)s without (\w+)/))) {
+    const what = m[2] === 'DRY' ? 'the area did not dry' : 'no liquid was detected';
+    stopNote = { title: 'Safety stop', detail: `After ${m[1]} s ${what}. Blower 1 is off. Check the patch and press Start again.`, bad: true };
+    needDry = null; vibrateUntil = null;
+    addEvent('err', 'i-alert', `<b>Safety stop:</b> after ${m[1]} s ${what}. Blower 1 off.`);
+    addMarker('Cutoff', '--danger');
+  } else if ((m = text.match(/^ERR dry baseline ([+-][\d.]+) V > ([\d.]+)/))) {
+    stopNote = { title: "Needles aren't dry", detail: `The dry reading was ${volts(m[1])} (limit ${volts(m[2])}). Dry the needles and press Start again.`, bad: true };
+    needDry = null;
+    addEvent('err', 'i-alert', `<b>Can't start:</b> needles read ${volts(m[1])}, above the ${volts(m[2])} dry limit. Dry them and try again.`);
+    addMarker('Not dry', '--danger');
+  } else if ((m = text.match(/^ERR ADC read failed \((-?\d+)\)/))) {
+    stopNote = { title: 'Sensor error', detail: `The needle sensor could not be read (code ${m[1]}). Blower 1 is off.`, bad: true };
+    addEvent('err', 'i-alert', `<b>Sensor read failed</b> (code ${esc(m[1])}). Blower 1 off.`);
+    addMarker('Error', '--danger');
+  } else {
+    const bad = /^ERR|cutoff|fail/i.test(text);
+    if (bad) stopNote = { title: 'Stopped', detail: text, bad: true };
+    addEvent(bad ? 'err' : 'minor', bad ? 'i-alert' : 'i-info', esc(text));
+  }
+}
 
 // ---------- link: USB serial or Bluetooth (same text protocol) ----------
 const hasSerial = 'serial' in navigator, hasBle = 'bluetooth' in navigator;
 const NUS     = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';  // Nordic UART Service
 const NUS_RX  = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';  // page -> board (write)
 const NUS_TX  = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';  // board -> page (notify)
-let link = null;   // { kind: 'usb' | 'ble', write(bytes), close() }
+let link = null;   // { kind: 'usb' | 'ble' | 'demo', write(bytes), close() }
 let rxBuf = '';
 
 function feed(text) {
@@ -444,19 +1171,29 @@ function feed(text) {
   while ((i = rxBuf.indexOf('\n')) >= 0) { onLine(rxBuf.slice(0, i)); rxBuf = rxBuf.slice(i + 1); }
 }
 
+const KIND_NAME = { usb: 'USB', ble: 'Bluetooth', demo: 'Demo device' };
 function setEnabled(on, kind) {
-  document.querySelectorAll('main button:not(#connectBtn):not(#bleBtn), main input').forEach(el => el.disabled = !on);
-  $('linkDot').classList.toggle('live', on);
-  $('linkText').textContent = on ? `Connected (${kind === 'ble' ? 'Bluetooth' : 'USB'})` : 'Not connected';
-  $('connectBtn').textContent = on && kind === 'usb' ? 'Disconnect' : 'USB';
-  $('bleBtn').textContent = on && kind === 'ble' ? 'Disconnect' : 'Bluetooth';
+  $('connStatus').classList.toggle('live', on);
+  $('linkText').textContent = on ? `Connected · ${KIND_NAME[kind] || kind}` : 'Not connected';
+  $('connectBtn').querySelector('.lbl').textContent = on && kind === 'usb' ? 'Disconnect' : 'USB';
+  $('bleBtn').querySelector('.lbl').textContent = on && kind === 'ble' ? 'Disconnect' : 'Bluetooth';
+  $('demoBtn').querySelector('.lbl').textContent = on && kind === 'demo' ? 'Disconnect' : 'Demo';
+  $('connectBtn').querySelector('use').setAttribute('href', on && kind === 'usb' ? '#i-unlink' : '#i-usb');
+  $('bleBtn').querySelector('use').setAttribute('href', on && kind === 'ble' ? '#i-unlink' : '#i-bt');
   $('connectBtn').disabled = !hasSerial || (on && kind !== 'usb');
   $('bleBtn').disabled = !hasBle || (on && kind !== 'ble');
+  $('demoBtn').disabled = on && kind !== 'demo';
+  $('connectBtn').hidden = on && kind !== 'usb';
+  $('bleBtn').hidden = on && kind !== 'ble';
+  $('demoBtn').hidden = !DEMO || (on && kind !== 'demo');
+  $('emptyUsb').disabled = !hasSerial;
+  $('emptyBle').disabled = !hasBle;
+  render();
 }
 
 async function send(cmd) {
   if (!link) return;
-  log('> ' + cmd);
+  log('> ' + cmd, 'tx');
   await link.write(new TextEncoder().encode(cmd + '\n'));
 }
 
@@ -487,15 +1224,16 @@ function onLine(line) {
     state.v = +vm[1];
     if (vm[2] !== undefined) state.base = vm[2] === 'nan' ? (state.mode === 'fill' ? state.base : null) : +vm[2];
     if (vm[3] !== undefined) state.hits = +vm[3];
-    points.push({ t: performance.now(), v: state.v, thr: threshold(), base: state.base, on: state.on });
+    points.push({ t: performance.now(), v: state.v, thr: threshold(), base: state.base, on: state.on, erm: erm.on });
     render();
     return;
   }
 
   const ahz = line.match(/^AUTOHZ (\d+)/) || line.match(/^CFG .*auto_hz=(\d+)/);
   if (ahz) {
+    cfg.autoHz = +ahz[1];
     if (document.activeElement !== $('autoHzInput')) $('autoHzInput').value = ahz[1];
-    $('autoHzView').textContent = `(board: ${(+ahz[1]).toLocaleString()} Hz)`;
+    render();
   }
 
   const em2 = line.match(/^OPTO2 on=([01])/);
@@ -513,13 +1251,16 @@ function onLine(line) {
 
   const cm = line.match(/^CFG wet_rise=(\S+) dry_max=(\S+) hits=(\d+)/);
   if (cm) {
-    const aw = line.match(/auto_wait=(\d+)/);
-    cfg = { wetRise: +cm[1], dryMax: +cm[2], hits: +cm[3], autoWait: aw ? +aw[1] : cfg.autoWait };
+    const aw = line.match(/auto_wait=(\d+)/), mr = line.match(/max_run=(\d+)/);
+    cfg = { ...cfg, wetRise: +cm[1], dryMax: +cm[2], hits: +cm[3],
+            autoWait: aw ? +aw[1] : cfg.autoWait, maxRun: mr ? +mr[1] : cfg.maxRun };
+    if (vibrateUntil === null) vibrateTotal = cfg.autoWait;
     render(); log(line); return;
   }
 
   const m = line.match(/^OK f=(\d+) on=([01])(?: mode=(\w+))?(?: v=(\S+))?/);
   if (m) {
+    const wasAuto = state.auto, wasVibe = isVibrate();
     if (pendingHz === null && !sending) state.f = +m[1];
     state.on = m[2] === '1';
     if (m[3]) {
@@ -529,33 +1270,24 @@ function onLine(line) {
     if (m[4]) state.v = m[4] === 'nan' ? null : +m[4];
     const am = line.match(/ auto=([01]) cycle=(\d+)/);
     if (am) { state.auto = am[1] === '1'; state.cycle = +am[2]; }
-    if (state.mode !== 'wait') nextRunAt = null;
+    const now = performance.now();
+    if (!wasAuto && state.auto) { autoStartedAt = now; autoEndedAt = null; }
+    if (wasAuto && !state.auto) autoEndedAt = now;
+    if (isVibrate() && !wasVibe && (vibrateUntil === null || vibrateUntil < now)) vibrateUntil = now + vibrateTotal * 1000;
+    if (!isVibrate()) vibrateUntil = null;
+    if (!running()) needDry = null;
     render();
   }
 
   const bad = line.startsWith('ERR') || line.startsWith('EVT ERR') || line.includes('cutoff');
-  if (line.startsWith('EVT ')) {
-    const text = line.slice(4);
-    const isWet = text.startsWith('WET');
-    $('lastEvt').textContent = text;
-    $('lastEvt').className = bad ? 'err' : isWet ? 'wetEvt' : '';
-    if (isWet) {
-      runsDone++;
-      const nm = text.match(/next in (\d+)s/);
-      nextRunAt = nm ? performance.now() + +nm[1] * 1000 : null;
-      addMarker('WET → OFF', '--wet');
-      renderCounter();
-    }
-    else if (text.startsWith('DRY')) addMarker('DRY', '--wait');
-    else if (text.startsWith('baseline +') || text.startsWith('baseline -')
-             || /^run \d+: blower ON/.test(text)) addMarker('ON', '--on');
-    else if (bad) addMarker('STOP', '--err');
-  }
+  if (line.startsWith('EVT ')) { onEvent(line.slice(4)); render(); }
+  else if (line.startsWith('ERR')) addEvent('err', 'i-alert', esc(line.replace(/^ERR\s*/, 'Board says: ')));
   log(line, bad ? 'err' : '');
 }
 
 async function onConnected() {
   setEnabled(true, link.kind);
+  addEvent('ok', 'i-link', link.kind === 'demo' ? '<b>Connected</b> to the demo device.' : `<b>Connected</b> over ${KIND_NAME[link.kind] || link.kind}.`);
   await send('?');
   await send('opto');
   await send('opto2');
@@ -653,7 +1385,11 @@ async function cleanup(reason) {
   if (!link) return;
   const l = link; link = null; rxBuf = '';
   try { await l.close(); } catch {}
+  if (state.auto) autoEndedAt = performance.now();
+  state.auto = false; state.on = false; state.mode = 'idle'; erm.on = false; erm2.on = false; b2.on = false;
+  needDry = null; vibrateUntil = null;
   setEnabled(false);
+  addEvent('minor', 'i-unlink', esc(reason ? reason[0].toUpperCase() + reason.slice(1) + '.' : 'Disconnected.'));
   log(reason || 'disconnected');
 }
 
@@ -665,28 +1401,33 @@ async function disconnect() {
   await cleanup();
 }
 
+const friendlyErr = e => /No port selected|User cancelled|cancelled the requestDevice/i.test(e.message)
+  ? null : e.message;
 $('connectBtn').onclick = async () => {
   try { link ? await disconnect() : await connectUsb(); }
-  catch (e) { log(e.message, 'err'); await cleanup(); }
+  catch (e) { log(e.message, 'err'); const f = friendlyErr(e); if (f) addEvent('err', 'i-alert', esc('USB: ' + f)); await cleanup(); }
 };
 $('bleBtn').onclick = async () => {
   try { link ? await disconnect() : await connectBle(); }
-  catch (e) { log(e.message, 'err'); await cleanup(); }
+  catch (e) { log(e.message, 'err'); const f = friendlyErr(e); if (f) addEvent('err', 'i-alert', esc('Bluetooth: ' + f)); await cleanup(); }
 };
-$('toggleBtn').onclick = () => send(state.on ? 'off' : 'on');
-$('runBtn').onclick = () => send('fill');
+$('emptyUsb').onclick = () => $('connectBtn').click();
+$('emptyBle').onclick = () => $('bleBtn').click();
+
 $('autoBtn').onclick = () => {
-  if (state.auto) { send('off'); return; }
-  runsDone = 0; renderCounter();
+  if (state.auto || running()) { send('off'); return; }
+  runsDone = 0; stopNote = null; render();
   send('auto');
 };
-$('stopBtn').onclick = () => send('off');
+$('runBtn').onclick = () => { stopNote = null; send('fill'); };
+$('resetRunsBtn').onclick = () => { runsDone = 0; render(); };
+$('toggleBtn').onclick = () => send(state.on ? 'off' : 'on');
+document.querySelectorAll('[data-autohz]').forEach(b => b.onclick = () => send('autohz ' + b.dataset.autohz));
 $('autoHzForm').onsubmit = e => {
   e.preventDefault();
   const v = Math.round(+$('autoHzInput').value);
   if (v >= MIN_HZ && v <= MAX_HZ) send('autohz ' + v); else log(`enter ${MIN_HZ}..${MAX_HZ}`, 'err');
 };
-$('resetRunsBtn').onclick = () => { runsDone = 0; renderCounter(); };
 $('slider').oninput = e => requestHz(+e.target.value);
 $('ermBtn').onclick = () => send(erm.on ? 'opto off' : 'opto on');
 $('erm2Btn').onclick = () => send(erm2.on ? 'opto2 off' : 'opto2 on');
@@ -716,15 +1457,124 @@ $('rawForm').onsubmit = e => {
   if (v) send(v);
   $('rawInput').value = '';
 };
+$('clearTl').onclick = () => { $('timeline').replaceChildren(); $('tlEmpty').hidden = false; };
 document.addEventListener('keydown', e => {
-  if (e.code === 'Space' && link &&!['INPUT', 'BUTTON'].includes(document.activeElement.tagName)) {
+  if (e.code === 'Space' && link && !state.auto && !['INPUT', 'BUTTON', 'SUMMARY'].includes(document.activeElement.tagName)) {
     e.preventDefault(); $('toggleBtn').click();
   }
 });
 
-if (!hasSerial && !hasBle) $('noSerial').hidden = false;
+// ---------- demo device (only with ?demo in the URL) ----------
+// A small simulation of the firmware's text protocol, for previews without hardware.
+const DEMO = qs.has('demo');
+async function connectDemo() {
+  const S = { f: 25500, on: false, mode: 'idle', auto: false, cycle: 0, autoHz: 24800, savedHz: 25500,
+    erm: [false, false], b2f: 25500, b2on: false, stream: false, base: null, wet: 0, v: 0.011,
+    t0: 0, n: 0, sum: 0, hits: 0, dryHits: 0, needDry: false, arriveAt: 0, waitUntil: 0, rebased: false };
+  const say = s => setTimeout(() => { if (link && link.kind === 'demo') feed(s + '\n'); }, 8);
+  const fv = x => (x >= 0 ? '+' : '') + x.toFixed(4);
+  const now = () => performance.now();
+  const ok = () => say(`OK f=${S.f} on=${S.on ? 1 : 0} mode=${S.mode} v=${fv(S.v)} auto=${S.auto ? 1 : 0} cycle=${S.cycle}`);
+  const evt = t => say('EVT ' + t);
+  const opto = ch => say(`OPTO${ch ? '2' : ''} on=${S.erm[ch] ? 1 : 0}`);
+  const autoEnd = () => { if (S.auto) { S.auto = false; S.f = S.savedHz; if (S.erm[0]) { S.erm[0] = false; opto(0); } } };
+  const cancel = () => { if (['baseline', 'fill', 'vibrate'].includes(S.mode)) evt(S.auto ? 'auto cancelled' : 'fill cancelled'); autoEnd(); };
+  const startBaseline = () => {
+    S.on = false; S.mode = 'baseline'; S.n = 0; S.sum = 0; S.base = null; S.rebased = false; S.needDry = false;
+    evt(S.auto ? 'auto run 1: baseline 50 readings, blower OFF' : 'baseline: 50 readings, blower OFF'); ok();
+  };
+  const startFill = () => {
+    S.mode = 'fill'; S.on = true; S.t0 = now(); S.hits = 0; S.dryHits = 0;
+    S.arriveAt = now() + (S.needDry ? 4500 : 3000) + Math.random() * 2500;
+  };
+  const tick = () => {
+    const t = now();
+    let target = S.wet;
+    if (S.mode === 'fill') target = t >= S.arriveAt ? 1 : 0;
+    else if (S.mode === 'vibrate') target = 1;
+    else if (S.mode === 'manual') target = 0;
+    S.wet += (target - S.wet) * (target > S.wet ? 0.3 : 0.05);
+    S.v = 0.011 + (S.on ? 0.004 : 0) + S.wet * 0.15 + (Math.random() - 0.5) * 0.003;
+    if (S.mode === 'baseline') {
+      S.sum += S.v;
+      if (++S.n >= 12) {
+        S.base = S.sum / S.n;
+        evt(`baseline ${fv(S.base)} V (spread 0.0029 V), blower ON`);
+        startFill(); ok();
+      }
+    } else if (S.mode === 'fill') {
+      const el = t - S.t0, rise = S.v - S.base;
+      if (!S.rebased) {
+        if (el > 900) { const nb = S.base + 0.004; evt(`blower-on offset +0.0040 V, baseline now ${fv(nb)} V`); S.base = nb; S.rebased = true; }
+      } else if (S.needDry) {
+        if (el > 300) {
+          S.dryHits = rise < cfg.wetRise / 2 ? S.dryHits + 1 : 0;
+          if (S.dryHits >= 2) { S.needDry = false; S.hits = 0; evt(`DRY at ${(el / 1000).toFixed(3)}s (V=${fv(S.v)}, rise ${fv(rise)}), waiting for WET`); }
+        }
+      } else {
+        S.hits = rise >= 0.075 ? S.hits + 1 : 0;
+        if (S.hits >= 2) {
+          const head = `WET at ${(el / 1000).toFixed(3)}s (V=${fv(S.v)}, rise ${fv(rise)}), blower OFF`;
+          if (!S.auto) { S.on = false; S.mode = 'idle'; evt(head); ok(); }
+          else {
+            S.on = false; evt(`${head}, run ${S.cycle} done, ERM 1 ON for 5s`);
+            S.hits = 0; S.mode = 'vibrate'; S.erm[0] = true; opto(0); S.waitUntil = t + 5000; ok();
+          }
+        }
+      }
+    } else if (S.mode === 'vibrate' && t >= S.waitUntil) {
+      S.erm[0] = false; opto(0); S.cycle++; S.needDry = true; startFill();
+      evt(`run ${S.cycle}: blower ON, waiting for DRY then WET`); ok();
+    }
+    if (S.stream || ['baseline', 'fill'].includes(S.mode))
+      say(`V ${fv(S.v)} b=${S.base === null ? 'nan' : fv(S.base)} hits=${S.hits}`);
+  };
+  const handle = raw => {
+    const cmd = raw.trim().toLowerCase();
+    let m;
+    if (cmd === '?') { say(`CFG wet_rise=0.0750 dry_max=0.0300 hits=2 max_run=360 auto_wait=5 auto_hz=${S.autoHz}`); ok(); }
+    else if (cmd === 'on') { cancel(); S.on = true; S.mode = 'manual'; ok(); }
+    else if (cmd === 'off') { cancel(); S.on = false; S.mode = 'idle'; ok(); }
+    else if (cmd === 'fill') { autoEnd(); S.cycle = 0; startBaseline(); }
+    else if (cmd === 'auto') { if (!S.auto) S.savedHz = S.f; S.f = S.autoHz; S.auto = true; S.cycle = 1; startBaseline(); }
+    else if ((m = cmd.match(/^autohz(?: (\d+))?$/))) { if (m[1]) { S.autoHz = +m[1]; if (S.auto) S.f = S.autoHz; } say('AUTOHZ ' + S.autoHz); if (m[1] && S.auto) ok(); }
+    else if ((m = cmd.match(/^v (on|off)$/))) S.stream = m[1] === 'on';
+    else if ((m = cmd.match(/^(opto2|opto)(?: (on|off))?$/))) { const ch = m[1] === 'opto2' ? 1 : 0; if (m[2]) S.erm[ch] = m[2] === 'on'; opto(ch); }
+    else if ((m = cmd.match(/^b2(?: (on|off|\d+))?$/))) {
+      if (m[1] === 'on') S.b2on = true; else if (m[1] === 'off') S.b2on = false; else if (m[1]) S.b2f = +m[1];
+      say(`B2 f=${S.b2f} on=${S.b2on ? 1 : 0}`);
+    }
+    else if (/^\d+$/.test(cmd)) { S.f = +cmd; ok(); }
+    else say('ERR unknown command: ' + cmd);
+  };
+  let buf = '';
+  const timer = setInterval(tick, 100);
+  link = {
+    kind: 'demo',
+    write: async bytes => {
+      buf += new TextDecoder().decode(bytes);
+      let i;
+      while ((i = buf.indexOf('\n')) >= 0) { handle(buf.slice(0, i)); buf = buf.slice(i + 1); }
+    },
+    close: async () => clearInterval(timer),
+  };
+  await onConnected();
+}
+$('demoBtn').onclick = async () => {
+  try { link ? await disconnect() : await connectDemo(); }
+  catch (e) { log(e.message, 'err'); await cleanup(); }
+};
+
+// ---------- start ----------
+const hints = [];
+if (!hasSerial) hints.push('USB needs desktop Chrome or Edge (Web Serial is not available in this browser).');
+if (!hasBle) hints.push('Bluetooth needs Chrome on Android or on a desktop (Web Bluetooth is not available in this browser).');
+if (!window.isSecureContext) hints.push('Open this page from an https:// address (or localhost) so the browser allows USB and Bluetooth.');
+$('apiHints').innerHTML = hints.map(h => `<div class="hint"><svg class="i"><use href="#i-alert"/></svg><span>${esc(h)}</span></div>`).join('');
+$('demoBanner').hidden = !DEMO;
 setEnabled(false);
 render();
+if (DEMO && qs.get('demo') === 'auto') connectDemo().then(() => setTimeout(() => $('autoBtn').click(), 300));
 </script>
 </body>
 </html>
