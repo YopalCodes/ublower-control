@@ -644,7 +644,7 @@
   </div>
   <div id="lockNote" class="lock" hidden>
     <svg class="i"><use href="#i-lock"/></svg>
-    <span>The auto run is driving <b>Blower 1</b> and <b>ERM 1</b>. Press <b>Stop</b> to control them by hand. Blower 2 and ERM 2 still work.</span>
+    <span>The auto run is driving <b>Blower 1</b> and <b>ERM 1</b>. Press <b>Stop</b> to control them by hand.</span>
   </div>
 
   <div class="pair">
@@ -685,14 +685,14 @@
         </details>
         <div class="erm-row" id="erm1Row">
           <div class="who"><span class="ico"><svg class="i shake"><use href="#i-vibe"/></svg></span>
-            <div><div style="font-weight:700">ERM 1</div><div class="unit-sub">vibration motor · D5</div></div></div>
+            <div><div style="font-weight:700">ERM 1</div><div class="unit-sub">vibration motor · D3</div></div></div>
           <button id="ermBtn" class="switch" role="switch" aria-checked="false" aria-label="ERM 1" data-need="manual1"><span class="trk"></span><span class="st">Off</span></button>
         </div>
       </div>
     </section>
 
     <!-- Blower 2 + ERM 2 -->
-    <section id="unit2" class="card unit" aria-label="Blower 2 and ERM 2">
+    <section id="unit2" class="card unit" aria-label="Blower 2 and ERM 2" hidden>
       <div class="unit-head" id="b2Head">
         <span class="ico"><svg class="i spin"><use href="#i-fan"/></svg></span>
         <div class="tt"><div class="unit-title">Blower 2</div><div class="unit-sub">D4 · manual only</div></div>
@@ -755,7 +755,7 @@
     </div>
   </details>
 
-  <footer>Blower 1 D0 · ERM 1 D5 · Blower 2 D4 · ERM 2 D3 · needles D1/D2 · XIAO nRF54L15 · USB 115200 or Bluetooth “nrfELISA”</footer>
+  <footer>Blower 1 D0 · ERM 1 D3 · AD7746 SDA D4 / SCL D5 · needles on AD7746 VIN+/VIN− · XIAO nRF54L15 · USB 115200 or Bluetooth “nrfELISA”</footer>
 </main>
 
 <script>
@@ -786,8 +786,8 @@ let cfg = { wetRise: 0.075, dryMax: 0.03, hits: 2, autoWait: 5, autoHz: null, ma
 let state = { f: 25500, on: false, mode: 'idle', v: null, base: null, hits: 0, auto: false, cycle: 0 };
 let runsDone = 0;        // WET events seen this auto run (page counter)
 let pendingHz = null, sending = false;
-let erm = { on: false };   // ERM 1 (D5), from the board's "OPTO on=<0|1>" line
-let erm2 = { on: false };  // ERM 2 (D3), "OPTO2 on=<0|1>"
+let erm = { on: false };   // ERM 1 (D3), from the board's "OPTO on=<0|1>" line
+let erm2 = { on: false };  // ERM 2 (not wired; card hidden), "OPTO2 on=<0|1>"
 let b2 = { f: null, on: false };     // blower 2 on D4, "B2 f=<Hz> on=<0|1>"
 let pendingB2 = null, sendingB2 = false;
 const points = [];   // { t, v, thr, base, on, erm }
@@ -1146,8 +1146,8 @@ function onEvent(text) {
     needDry = null;
     addEvent('err', 'i-alert', `<b>Can't start:</b> needles read ${volts(m[1])}, above the ${volts(m[2])} dry limit. Dry them and try again.`);
     addMarker('Not dry', '--danger');
-  } else if ((m = text.match(/^ERR ADC read failed \((-?\d+)\)/))) {
-    stopNote = { title: 'Sensor error', detail: `The needle sensor could not be read (code ${m[1]}). Blower 1 is off.`, bad: true };
+  } else if ((m = text.match(/^ERR (?:ADC|AD7746) read failed \((-?\d+)\)/))) {
+    stopNote = { title: 'Sensor error', detail: `The AD7746 needle sensor could not be read (code ${m[1]}). Check its D4/D5 wiring. Blower 1 is off.`, bad: true };
     addEvent('err', 'i-alert', `<b>Sensor read failed</b> (code ${esc(m[1])}). Blower 1 off.`);
     addMarker('Error', '--danger');
   } else {
@@ -1290,8 +1290,6 @@ async function onConnected() {
   addEvent('ok', 'i-link', link.kind === 'demo' ? '<b>Connected</b> to the demo device.' : `<b>Connected</b> over ${KIND_NAME[link.kind] || link.kind}.`);
   await send('?');
   await send('opto');
-  await send('opto2');
-  await send('b2');
   await send('v on');
 }
 
@@ -1396,8 +1394,6 @@ async function cleanup(reason) {
 async function disconnect() {
   try { await send('off'); } catch {}
   try { await send('opto off'); } catch {}
-  try { await send('opto2 off'); } catch {}
-  try { await send('b2 off'); } catch {}
   await cleanup();
 }
 
