@@ -605,6 +605,16 @@
         <button type="submit" class="btn" data-need="link">Set</button>
       </form>
     </div>
+    <div class="hero-foot">
+      <div class="lbl">Liquid threshold<small>How far the needle voltage must rise above the dry baseline to count as liquid. Higher is less sensitive.</small></div>
+      <form id="wetForm" class="hz-form">
+        <label for="wetInput" class="sr">Liquid threshold in volts</label>
+        <input id="wetInput" type="number" min="0.001" max="1.17" step="0.01" value="0.40" data-need="link">
+        <span class="muted">V</span>
+        <button type="submit" class="btn" data-need="link">Set</button>
+      </form>
+      <span class="muted" id="wetNow">Board: —</span>
+    </div>
   </section>
 
   <div class="grid2">
@@ -782,7 +792,7 @@ const qs = new URLSearchParams(location.search);
 if (['dark', 'light'].includes(qs.get('theme'))) document.documentElement.dataset.theme = qs.get('theme');
 
 // cfg comes from the board's "CFG" line; these defaults match config.h.
-let cfg = { wetRise: 0.075, dryMax: 0.03, hits: 2, autoWait: 5, autoHz: null, maxRun: 360 };
+let cfg = { wetRise: 0.4, dryMax: 0.03, hits: 2, autoWait: 5, autoHz: null, maxRun: 360 };
 let state = { f: 25500, on: false, mode: 'idle', v: null, base: null, hits: 0, auto: false, cycle: 0 };
 let runsDone = 0;        // WET events seen this auto run (page counter)
 let pendingHz = null, sending = false;
@@ -1255,6 +1265,8 @@ function onLine(line) {
     cfg = { ...cfg, wetRise: +cm[1], dryMax: +cm[2], hits: +cm[3],
             autoWait: aw ? +aw[1] : cfg.autoWait, maxRun: mr ? +mr[1] : cfg.maxRun };
     if (vibrateUntil === null) vibrateTotal = cfg.autoWait;
+    $('wetNow').textContent = `Board: ${cfg.wetRise.toFixed(3)} V`;
+    if (document.activeElement !== $('wetInput')) $('wetInput').value = cfg.wetRise.toFixed(3);
     render(); log(line); return;
   }
 
@@ -1424,6 +1436,11 @@ $('autoHzForm').onsubmit = e => {
   const v = Math.round(+$('autoHzInput').value);
   if (v >= MIN_HZ && v <= MAX_HZ) send('autohz ' + v); else log(`enter ${MIN_HZ}..${MAX_HZ}`, 'err');
 };
+$('wetForm').onsubmit = e => {
+  e.preventDefault();
+  const v = +$('wetInput').value;
+  if (v >= 0.001 && v <= 1.17) send('wet ' + v.toFixed(3)); else log('enter 0.001..1.17 V', 'err');
+};
 $('slider').oninput = e => requestHz(+e.target.value);
 $('ermBtn').onclick = () => send(erm.on ? 'opto off' : 'opto on');
 $('erm2Btn').onclick = () => send(erm2.on ? 'opto2 off' : 'opto2 on');
@@ -1528,7 +1545,9 @@ async function connectDemo() {
   const handle = raw => {
     const cmd = raw.trim().toLowerCase();
     let m;
-    if (cmd === '?') { say(`CFG wet_rise=0.0750 dry_max=0.0300 hits=2 max_run=360 auto_wait=5 auto_hz=${S.autoHz}`); ok(); }
+    const cfgLine = () => say(`CFG wet_rise=${(S.wetTh ?? 0.075).toFixed(4)} dry_max=0.0300 hits=2 max_run=360 auto_wait=5 auto_hz=${S.autoHz}`);
+    if (cmd === '?') { cfgLine(); ok(); }
+    else if ((m = cmd.match(/^wet ([\d.]+)$/))) { S.wetTh = +m[1]; cfgLine(); }
     else if (cmd === 'on') { cancel(); S.on = true; S.mode = 'manual'; ok(); }
     else if (cmd === 'off') { cancel(); S.on = false; S.mode = 'idle'; ok(); }
     else if (cmd === 'fill') { autoEnd(); S.cycle = 0; startBaseline(); }
